@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>body{background-color:white;}</style>
+<link href="data:text/css,%0A%2ERtable1%20table%2C%20table%2ERtable1%20%7B%0Afont%2Dfamily%3A%20%22Arial%22%2C%20Arial%2C%20sans%2Dserif%3B%0Afont%2Dsize%3A%2010pt%3B%0Aborder%2Dcollapse%3A%20collapse%3B%0Apadding%3A%200px%3B%0Amargin%3A%200px%3B%0A%0A%7D%0A%2ERtable1%20td%20%7B%0Awhite%2Dspace%3Anowrap%3B%0A%7D%0A%2ERtable1%20th%2C%20%2ERtable1%20td%20%7B%0Aborder%3A%200%3B%0Atext%2Dalign%3A%20center%3B%0Apadding%3A%200%2E5ex%201%2E5ex%3B%0Amargin%3A%200px%3B%0A%7D%0A%2ERtable1%20thead%3Etr%3Afirst%2Dchild%3Eth%20%7B%0Aborder%2Dtop%3A%202pt%20solid%20black%3B%0A%7D%0A%2ERtable1%20thead%3Etr%3Alast%2Dchild%3Eth%20%7B%0Aborder%2Dbottom%3A%201pt%20solid%20black%3B%0A%7D%0A%2ERtable1%20tbody%3Etr%3Alast%2Dchild%3Etd%20%7B%0Aborder%2Dbottom%3A%202pt%20solid%20black%3B%0A%7D%0A%2ERtable1%20th%2Egrouplabel%20%7B%0Apadding%2Dleft%3A%200%3B%0Apadding%2Dright%3A%200%3B%0A%7D%0A%2ERtable1%20th%2Egrouplabel%3Ediv%20%7B%0Amargin%2Dleft%3A%201%2E5ex%3B%0Amargin%2Dright%3A%201%2E5ex%3B%0Aborder%2Dbottom%3A%201pt%20solid%20black%3B%0A%7D%0A%2ERtable1%20th%2Egrouplabel%3Alast%2Dchild%3Ediv%20%7B%0Amargin%2Dright%3A%200%3B%0A%7D%0A%2ERtable1%20%2Erowlabel%20%7B%0Atext%2Dalign%3A%20left%3B%0Apadding%2Dleft%3A%202%2E5ex%3B%0A%7D%0A%2ERtable1%20%2Efirstrow%2Erowlabel%20%7B%0Apadding%2Dleft%3A%200%2E5ex%3B%0Afont%2Dweight%3A%20bold%3B%0A%7D%0A%0A%2ERtable1%2Dzebra%20tbody%20tr%3Anth%2Dchild%28odd%29%20%7B%0Abackground%2Dcolor%3A%20%23eee%3B%0A%7D%0A%0Atable%2ERtable1%2Dtimes%20%7B%0Afont%2Dfamily%3A%20%22Times%20New%20Roman%22%2C%20Times%2C%20serif%3B%0A%7D%0A%0A%2ERtable1%2Dshade%20th%20%7B%0Abackground%2Dcolor%3A%20%23ccc%3B%0A%7D%0A%0A%2ERtable1%2Dgrid%20th%2C%20%2ERtable1%2Dgrid%20td%20%7B%0Aborder%2Dleft%3A%201pt%20solid%20black%3B%0Aborder%2Dright%3A%201pt%20solid%20black%3B%0A%7D%0A%2ERtable1%2Dgrid%20thead%3Etr%3Afirst%2Dchild%3Eth%20%7B%0Aborder%2Dtop%3A%201pt%20solid%20black%3B%0A%7D%0A%2ERtable1%2Dgrid%20thead%3Etr%3Alast%2Dchild%3Eth%20%7B%0Aborder%2Dbottom%3A%201pt%20solid%20black%3B%0A%7D%0A%2ERtable1%2Dgrid%20tbody%3Etr%3Alast%2Dchild%3Etd%20%7B%0Aborder%2Dbottom%3A%201pt%20solid%20black%3B%0A%7D%0A%2ERtable1%2Dgrid%20%2Efirstrow%2C%20%2ERtable1%2Dgrid%20%2Efirstrow%20%7E%20td%20%7B%0Aborder%2Dtop%3A%201pt%20solid%20black%3B%0A%7D%0A%2ERtable1%2Dgrid%20th%2Egrouplabel%3Ediv%20%7B%0Amargin%2Dleft%3A%200%3B%0Amargin%2Dright%3A%200%3B%0Aborder%2Dbottom%3A%200%3B%0A%7D%0A%0A%2ERtable1%2Dcenter%20td%2Erowlabel%2C%20%2ERtable1%2Dcenter%20td%2Efirstrow%2Erowlabel%20%7B%0Afont%2Dweight%3A%20bold%3B%0Atext%2Dalign%3A%20center%3B%0Apadding%3A%200%2E5ex%201%2E5ex%3B%0A%7D%0A%0A%2ERtable1%20%2ERtable1%2Dfootnote%20%7B%0Afont%2Dsize%3A%20smaller%3B%0Apadding%3A%200px%3B%0Amargin%3A%200px%3B%0Atext%2Dalign%3A%20left%3B%0A%7D%0A" rel="stylesheet" />
+
+</head>
+<body>
+<div class="Rtable1"><table class="Rtable1">
+<thead>
+<tr>
+<th class="rowlabel firstrow lastrow"></th>
+<th class="firstrow lastrow"><span class="stratlabel">Test Positive<br><span class="stratn">(N=34617)</span></span></th>
+<th class="firstrow lastrow"><span class="stratlabel">Test Negative<br><span class="stratn">(N=662519)</span></span></th>
+<th class="firstrow lastrow"><span class="stratlabel">P-value</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="rowlabel firstrow">Age</td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+</tr>
+<tr>
+<td class="rowlabel">12-18</td>
+<td>3558 (10.3%)</td>
+<td>63902 (9.6%)</td>
+<td>&lt;0.001</td>
+</tr>
+<tr>
+<td class="rowlabel">19-29</td>
+<td>10568 (30.5%)</td>
+<td>200054 (30.2%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel">30-39</td>
+<td>8010 (23.1%)</td>
+<td>145338 (21.9%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel">40-49</td>
+<td>5270 (15.2%)</td>
+<td>94663 (14.3%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel">50-59</td>
+<td>4243 (12.3%)</td>
+<td>82805 (12.5%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel">60-69</td>
+<td>2028 (5.9%)</td>
+<td>49494 (7.5%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel">70-79</td>
+<td>668 (1.9%)</td>
+<td>20109 (3.0%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel lastrow">&gt;=80</td>
+<td class="lastrow">272 (0.8%)</td>
+<td class="lastrow">6154 (0.9%)</td>
+<td class="lastrow"></td>
+</tr>
+<tr>
+<td class="rowlabel firstrow">Sex</td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+</tr>
+<tr>
+<td class="rowlabel">Male</td>
+<td>16352 (47.2%)</td>
+<td>282978 (42.7%)</td>
+<td>&lt;0.001</td>
+</tr>
+<tr>
+<td class="rowlabel">Female</td>
+<td>18263 (52.8%)</td>
+<td>379489 (57.3%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel lastrow">Unknown</td>
+<td class="lastrow">2 (0.0%)</td>
+<td class="lastrow">52 (0.0%)</td>
+<td class="lastrow"></td>
+</tr>
+<tr>
+<td class="rowlabel firstrow">Race/Ethnicity</td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+</tr>
+<tr>
+<td class="rowlabel">White NH</td>
+<td>9919 (28.7%)</td>
+<td>199367 (30.1%)</td>
+<td>&lt;0.001</td>
+</tr>
+<tr>
+<td class="rowlabel">Black NH</td>
+<td>4931 (14.2%)</td>
+<td>94755 (14.3%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel">Hispanic</td>
+<td>10373 (30.0%)</td>
+<td>185178 (28.0%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel">Nat Am./Pac Is./Al Nat.</td>
+<td>312 (0.9%)</td>
+<td>5129 (0.8%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel">Asian</td>
+<td>2230 (6.4%)</td>
+<td>46325 (7.0%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel lastrow">Other/Unknown</td>
+<td class="lastrow">6852 (19.8%)</td>
+<td class="lastrow">131765 (19.9%)</td>
+<td class="lastrow"></td>
+</tr>
+<tr>
+<td class="rowlabel firstrow">Region</td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+</tr>
+<tr>
+<td class="rowlabel">Bronx</td>
+<td>3447 (10.0%)</td>
+<td>74421 (11.2%)</td>
+<td>&lt;0.001</td>
+</tr>
+<tr>
+<td class="rowlabel">Brooklyn</td>
+<td>6159 (17.8%)</td>
+<td>117982 (17.8%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel">Manhattan</td>
+<td>5470 (15.8%)</td>
+<td>149292 (22.5%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel">Queens</td>
+<td>5286 (15.3%)</td>
+<td>94749 (14.3%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel">Staten Island</td>
+<td>1538 (4.4%)</td>
+<td>18329 (2.8%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel">Long Island</td>
+<td>10734 (31.0%)</td>
+<td>168849 (25.5%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel lastrow">Westchester</td>
+<td class="lastrow">1983 (5.7%)</td>
+<td class="lastrow">38897 (5.9%)</td>
+<td class="lastrow"></td>
+</tr>
+<tr>
+<td class="rowlabel firstrow">final_vaxstatus</td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+</tr>
+<tr>
+<td class="rowlabel">Vaccinated</td>
+<td>6576 (19.0%)</td>
+<td>307300 (46.4%)</td>
+<td>&lt;0.001</td>
+</tr>
+<tr>
+<td class="rowlabel lastrow">Unvaccinated</td>
+<td class="lastrow">28041 (81.0%)</td>
+<td class="lastrow">355219 (53.6%)</td>
+<td class="lastrow"></td>
+</tr>
+<tr>
+<td class="rowlabel firstrow">Symptomatic at testing (reported)</td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+</tr>
+<tr>
+<td class="rowlabel">Symptomatic</td>
+<td>4891 (14.1%)</td>
+<td>78543 (11.9%)</td>
+<td>&lt;0.001</td>
+</tr>
+<tr>
+<td class="rowlabel lastrow">Missing</td>
+<td class="lastrow">29726 (85.9%)</td>
+<td class="lastrow">583976 (88.1%)</td>
+<td class="lastrow"></td>
+</tr>
+<tr>
+<td class="rowlabel firstrow">Previous COVID infection</td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+</tr>
+<tr>
+<td class="rowlabel">Yes</td>
+<td>818 (2.4%)</td>
+<td>40260 (6.1%)</td>
+<td>&lt;0.001</td>
+</tr>
+<tr>
+<td class="rowlabel">No</td>
+<td>33788 (97.6%)</td>
+<td>621001 (93.7%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel lastrow">Missing</td>
+<td class="lastrow">11 (0.0%)</td>
+<td class="lastrow">1258 (0.2%)</td>
+<td class="lastrow"></td>
+</tr>
+<tr>
+<td class="rowlabel firstrow">High exposure to COVID</td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+</tr>
+<tr>
+<td class="rowlabel">0</td>
+<td>20206 (58.4%)</td>
+<td>343373 (51.8%)</td>
+<td>&lt;0.001</td>
+</tr>
+<tr>
+<td class="rowlabel">1</td>
+<td>7824 (22.6%)</td>
+<td>150529 (22.7%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel lastrow">&gt;=2</td>
+<td class="lastrow">6587 (19.0%)</td>
+<td class="lastrow">168617 (25.5%)</td>
+<td class="lastrow"></td>
+</tr>
+<tr>
+<td class="rowlabel firstrow">Symptomatic at rapid testing</td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+</tr>
+<tr>
+<td class="rowlabel">Yes</td>
+<td>23827 (68.8%)</td>
+<td>179649 (27.1%)</td>
+<td>&lt;0.001</td>
+</tr>
+<tr>
+<td class="rowlabel">No</td>
+<td>9155 (26.4%)</td>
+<td>400531 (60.5%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel lastrow">Missing</td>
+<td class="lastrow">1635 (4.7%)</td>
+<td class="lastrow">82339 (12.4%)</td>
+<td class="lastrow"></td>
+</tr>
+<tr>
+<td class="rowlabel firstrow">Comorbidities</td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+</tr>
+<tr>
+<td class="rowlabel">Yes</td>
+<td>4950 (14.3%)</td>
+<td>54814 (8.3%)</td>
+<td>&lt;0.001</td>
+</tr>
+<tr>
+<td class="rowlabel lastrow">No</td>
+<td class="lastrow">29667 (85.7%)</td>
+<td class="lastrow">607705 (91.7%)</td>
+<td class="lastrow"></td>
+</tr>
+<tr>
+<td class="rowlabel firstrow">BMI</td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+<td class="firstrow"></td>
+</tr>
+<tr>
+<td class="rowlabel">Healthy</td>
+<td>11237 (32.5%)</td>
+<td>226801 (34.2%)</td>
+<td>&lt;0.001</td>
+</tr>
+<tr>
+<td class="rowlabel">Underweight</td>
+<td>752 (2.2%)</td>
+<td>17099 (2.6%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel">Overweight</td>
+<td>10239 (29.6%)</td>
+<td>183123 (27.6%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel">Obese</td>
+<td>8564 (24.7%)</td>
+<td>147203 (22.2%)</td>
+<td></td>
+</tr>
+<tr>
+<td class="rowlabel lastrow">Missing</td>
+<td class="lastrow">3825 (11.0%)</td>
+<td class="lastrow">88293 (13.3%)</td>
+<td class="lastrow"></td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+</html>
