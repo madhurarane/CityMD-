@@ -11,19 +11,19 @@ library(Gmisc)
 library(knitr)
 
 #Pull in data
-Visit <- read_delim("/Users/madhurarane/Documents/CityMD/CUNY_Visit.csv","|", escape_double = FALSE, trim_ws = TRUE) 
+Visit <- read_delim("/Users/madhurarane/Documents/CityMD/CUNY_Visit.csv","|", escape_double = FALSE, trim_ws = TRUE) #10273173 
 COVIDResults <- read_delim("/Users/madhurarane/Documents/CityMD/CUNY_COVIDResults.csv", "|",escape_double = FALSE, 
                            col_types = list(col_character(),col_character(),col_character(),
                                             col_character(),col_character(),col_character(),col_character(),
                                             col_character(),col_double(),col_double()),
-                           trim_ws = TRUE) #
-ChiefComplaint  <- read_delim("/Users/madhurarane/Documents/CityMD/CUNY_ChiefComplaint.csv","|", escape_double = FALSE, trim_ws = TRUE) 
+                           trim_ws = TRUE) #8109375
+ChiefComplaint  <- read_delim("/Users/madhurarane/Documents/CityMD/CUNY_ChiefComplaint.csv","|", escape_double = FALSE, trim_ws = TRUE) #4236024
 
 
 
 
 #Rename vars 
-ChiefComplaint <- as.data.table(ChiefComplaint)
+ChiefComplaint <- as.data.table(ChiefComplaint) 
 
 ChiefComplaint %>% 
   rename(Complaint = `Chief Complaint`,
@@ -62,9 +62,25 @@ COVIDResults %>%
   filter(Lab.Result.Interpretation=="POSITIVE" | Lab.Result.Interpretation=="NEGATIVE") %>%
   filter(Test_date >= "2020-03-01") -> COVIDResults     #7988377                        
 
+COVIDResults <- COVIDResults %>%
+  group_by(PatientID) %>%
+  arrange(Test_date, .by_group=TRUE)%>%
+  mutate(Visit = 1:n())
+#Some pts got PCR + antigen tests on the same day with same VistID so don't pull out distinct Visit IDs 
+
 #Restrict chief complaint data to vaccine visits only 
-ChiefComplaint <-
-  ChiefComplaint %>% group_by(VisitID) %>% filter(row_number() == 1) #2068481
+Vaccine <- ChiefComplaint %>%
+  group_by(VisitID) %>%
+  arrange(Vax_date, .by_group=TRUE)%>%
+  mutate(Visit = 1:n())
+
+Vaccine %>%
+  group_by(Visit) %>%
+  summarise(n=n_distinct(VisitID))
+
+#Vaccine visits get included as an extra row under category "DOH Additional HPI required"
+Vaccine <-
+  ChiefComplaint %>% group_by(VisitID) %>% filter(`System Category`== "DOH (Additional HPI required)") #2068286
 
 #Remove duplicates in Visit data
 n_distinct(Visit$VisitID) #some duplicates
@@ -137,7 +153,7 @@ names(Visit.w)
 Visit.w <- setnames(Visit.w, old = c("1.x","1.y","1.x.x","1.y.y","1.x.x.x","1.y.y.y",1), new=c("1","Age","Gender","Race","Ethnicity","UHF","Region"))
 
 #select out demographic vars 
-Visit.demo <- Visit.w[, c(1,104:119)]
+Visit.demo <- Visit.w[, c(1,106:121)]
 
 #Remove extra datasets
 rm(Visit.w, Visit.w.age, Visit.w.ethnicity, Visit.w.facility, Visit.w.gender, Visit.w.PIG, Visit.w.race, Visit.w.re, Visit.w.region, Visit.w.UHF)
@@ -305,8 +321,8 @@ Visit.demo$racecat[is.na(Visit.demo$racecat)] <- "Other/Unknown"
 summary(as.factor(Visit.demo$racecat))
 
 ####### Updating race variable for citymd data based on Saba's code####
-updatedrace_orig_race$racecat <- NA
-updatedrace_orig_race$racecat[updatedrace_orig_race$Race %in% c("Abenaki","Absentee Shawnee", "Apache", "Arapaho", "Caddo","Acoma", 
+updatedrace_orig_race_Oct$racecat <- NA
+updatedrace_orig_race_Oct$racecat[updatedrace_orig_race_Oct$Race %in% c("Abenaki","Absentee Shawnee", "Apache", "Arapaho", "Caddo","Acoma", 
                                                                 "Alamo Navajo", "Canoncito Navajo", "Agdaagux", "Agua Caliente", "Agua Caliente Cahuilla", 
                                                                 "Augustine", "Bishop", "Bridgeport", "Cabazon", "Cahto", "Cahuilla", 
                                                                 "California Tribes", "Campo", "Capitan Grande", "Ak-Chin", "Arizona Tewa", 
@@ -439,38 +455,37 @@ updatedrace_orig_race$racecat[updatedrace_orig_race$Race %in% c("Abenaki","Absen
                                                                 "Nightmute","Nuiqsut"," Port Gamble Klallam","San Xavier","Scott Valley","Seneca-Cayuga","Siuslaw","Talakamish",
                                                                 "Tanacross","Togiak", "Lower Kalskag", "Port Gamble Klallam", "Tetlin")] <- "Native American/Alaskan Native/Pacific Islander"
 
-updatedrace_orig_race$racecat[updatedrace_orig_race$Race %in% c("Asian","Bangladeshi", "Bhutanese", "Asian Indian", "Maldivian", "Nepalese", "Pakistani",
+updatedrace_orig_race_Oct$racecat[updatedrace_orig_race_Oct$Race %in% c("Asian","Bangladeshi", "Bhutanese", "Asian Indian", "Maldivian", "Nepalese", "Pakistani",
                                                                 "Sri Lankan","Burmese", "Cambodian", "Indonesian", "Hmong", "Laotian", "Malaysian", "Singaporean",
                                                                 "Thailand", "Vietnamese","Chinese", "Iwo Jiman", "Japanese", "Korean", "Okinawan", "Taiwanese","Thai")] <- "Asian"                     
 
-updatedrace_orig_race$racecat[updatedrace_orig_race$Race %in% c("African", "Botswanan", "Ethiopian", "Liberian", "Madagascar", "Namibian", "Nigerian",
+updatedrace_orig_race_Oct$racecat[updatedrace_orig_race_Oct$Race %in% c("African", "Botswanan", "Ethiopian", "Liberian", "Madagascar", "Namibian", "Nigerian",
                                                                 "Zairean","African American","Bahamian", "Barbadian", "Douglas", "Haitian", "Jamaican", "Tobagoan", "Trinidadian",
                                                                 "West Indian","Black", "Black or African American")] <- "Black/AfrAm"
 
-updatedrace_orig_race$racecat[updatedrace_orig_race$Race %in% c("Alpine", "English", "European", "French", "German", "Irish", "Italian", "Moor",
+updatedrace_orig_race_Oct$racecat[updatedrace_orig_race_Oct$Race %in% c("Alpine", "English", "European", "French", "German", "Irish", "Italian", "Moor",
                                                                 "Polish", "Scottish", "Wales","Iranian", "Iraqi", "Armenian", "Arab", "Assyrian", "Afghanistani", 
                                                                 "Israeili", "Karluk", "Lebanese", "Egyptian", "Middle Eastern or North African", 
                                                                 "Palestinian", "Syrian","White")] <-"White"
 
 
-updatedrace_orig_race$racecat[updatedrace_orig_race$Race %in% c("Columbia","Dominica Islander", "Dominican", "Santo Domingo","Filipino","San Juan","Hispanic", "San Juan De")] <-"Hispanic"
+updatedrace_orig_race_Oct$racecat[updatedrace_orig_race_Oct$Race %in% c("Columbia","Dominica Islander", "Dominican", "Santo Domingo","Filipino","San Juan","Hispanic", "San Juan De")] <-"Hispanic"
 
-updatedrace_orig_race$racecat[updatedrace_orig_race$Race %in% c("Declined to Report", "Declined to Specify", "Unreported/Refuse to Report", "Unreported/Refused to Report",
+updatedrace_orig_race_Oct$racecat[updatedrace_orig_race_Oct$Race %in% c("Declined to Report", "Declined to Specify", "Unreported/Refuse to Report", "Unreported/Refused to Report",
                                                                 "Unreported/Refused To Report","Other Race","Carolinian", "Circle", "Council", "Eagle", "Lime", "Mcgrath", "Platinum", "Stewart",
                                                                 "Trinity", "Wiseman","Oklahoma Delaware","Siletz","Stonyford","", "Suqpigaq", "Unreported/Refuse To Report")] <- "Other/Unknown"
 # If ethnicity is Hispanic, change race to Hispanic
-updatedrace_orig_race$Ethnicity[updatedrace_orig_race$Ethnicity == "Unreported/Refused to Report"] <- NA 
-updatedrace_orig_race$Ethnicity[updatedrace_orig_race$Ethnicity == ""] <- NA 
+updatedrace_orig_race_Oct$Ethnicity[updatedrace_orig_race_Oct$Ethnicity == "Unreported/Refused to Report"] <- NA 
+updatedrace_orig_race_Oct$Ethnicity[updatedrace_orig_race_Oct$Ethnicity == ""] <- NA 
 
-updatedrace_orig_race$racecat[!is.na(updatedrace_orig_race$Ethnicity) & updatedrace_orig_race$Ethnicity != "Not Hispanic or Latino"] <- "Hispanic"
-summary(as.factor(updatedrace_orig_race$racecat))
-updatedrace_orig_race$racecat[is.na(updatedrace_orig_race$racecat)] <- "Other/Unknown"
-summary(as.factor(updatedrace_orig_race$racecat))
+updatedrace_orig_race_Oct$racecat[!is.na(updatedrace_orig_race_Oct$Ethnicity) & updatedrace_orig_race_Oct$Ethnicity != "Not Hispanic or Latino"] <- "Hispanic"
+summary(as.factor(updatedrace_orig_race_Oct$racecat))
+updatedrace_orig_race_Oct$racecat[is.na(updatedrace_orig_race_Oct$racecat)] <- "Other/Unknown"
+summary(as.factor(updatedrace_orig_race_Oct$racecat))
 
-#select last row for each ID group
-updatedrace_orig_race %>%
-  group_by(PatientID) %>%
-  slice_tail() -> updated.race
+#Remove rows that are Other/Unknown
+updated.race %>%
+  filter(racecat!="Other/Unknown") -> updated.race
 
 #merged updated races with original data
 updated.race %>%
@@ -486,23 +501,24 @@ Visit.demo$racecat <- if_else(Visit.demo$racecat=="Other/Unknown" & !(is.na(Visi
 
 
 #Remove duplicates in COVID results
-COVIDResults<- distinct(COVIDResults)
+COVIDResults<- distinct(COVIDResults) #7988377
 #Merge Visit data with covid results to get patient IDs for all results 
-merged.data1 <- inner_join(COVIDResults, Visit.demo, by="PatientID") #innerjoin because out of state covid results need to be filtered out
+merged.data1 <- inner_join(COVIDResults, Visit.demo, by="PatientID") #innerjoin because out of state covid results need to be filtered out (6994684)
 
 
 #merge vaccine and visit data
-merged.data2 <- left_join(merged.data1, ChiefComplaint, by="VisitID") #get patient IDs for vaccination data; innerjoin because some vax records could be for non-NY pts
+merged.data2 <- left_join(merged.data1, Vaccine, by="VisitID") #get patient IDs for vaccination data; #6994821
 
 #In incongruent tests, then use PCR results 
+
 merged.data2 <- merged.data2 %>% 
   group_by(PatientID, Test_date) %>% 
   mutate(labresult = ifelse(n_distinct(Lab.Result.Interpretation) > 1, Lab.Result.Interpretation[Grouping=="COVID PCR (Active)"], Lab.Result.Interpretation))
 
 merged.data2 %>%
-  filter(Grouping != "Not Mapped")-> merged.data2
+  filter(Grouping != "Not Mapped")-> merged.data2 #6978732
 
-#Create a variable for first and last date pts recieved a positive test
+#Create a variable for first and last date pts recieved a positive test (Ab or diagnostic)
 merged.data2 <- as.data.table(merged.data2)
 merged.data2[,
              first.pos := min(Test_date[labresult=="POSITIVE"])
@@ -511,50 +527,78 @@ merged.data2[,
 merged.data2[,
              last.pos := max(Test_date[labresult=="POSITIVE"])
              , by =.(PatientID)]
-
+beep()
+#This will include first positive tests for patients who were tested multiple times after study started
 #vax.data1 %>%
 # group_by(PatientID)%>%
 # mutate(final_lab_status = ifelse(n_distinct(labresult) > 1, labresult[Test_date==max(Test_date)], labresult))%>%
 # as.data.table()-> vax.data1
 
 #No. of test before 1/4/2021
+merged.data2 <- as.data.table(merged.data2)
 merged.data2[,
              npriortests := n_distinct(Test_date[Test_date<"2021-04-01"])
              , by =.(PatientID)]
-
-#Previous infection based on Ab test
-merged.data2 %>%
-  group_by(PatientID) %>%
-  mutate(prev.inf.Ab = ifelse(Grouping=="Antibody IgG" &  Test_date< "2021-04-01" & Lab.Result.Interpretation=="POSITIVE", "Yes", "No")) -> merged.data2
-
+beep()
 
 #Start with ppl who had a test after April 1 2021
-merged.data2[Test_date>"2021-04-01", n_distinct(PatientID)]
+merged.data2 <- as.data.table(merged.data2)
+merged.data2[Test_date>="2021-04-01", n_distinct(PatientID)] #1200103
 
-merged.data2.trunc <- merged.data2[Test_date>="2021-04-01"]
+merged.data2.trunc <- merged.data2[Test_date>="2021-04-01"] #2023158
 
 #In incongruent vax status, use latest vax status
 #New final vaccination variables had to be created using the truncated dataset otherwise variables cannot be formed 
 
 ##Restrict to those who had a vaccine reported
 merged.data2.trunc %>%
-  filter(Vaccine=="Yes" | Vaccine == "No") -> merged.data2.trunc
+  filter(is.na(Vax_rec) | Vax_rec=="No response") %>%
+  summarise(n= n_distinct(PatientID))
+
+merged.data2.trunc %>%
+  filter(Vax_rec=="Yes" | Vax_rec == "No") -> merged.data2.trunc #1965988
+
+#Create data set for those with missing vaccination status 
+merged.data2 %>%
+  filter(Test_date>="2021-04-01" & (is.na(Vax_rec) | Vax_rec=="No response"))-> Missing_vax
 
 #Exclude patients under 12 
+Ped.vaxdata <- merged.data2.trunc %>%
+  filter(Age<19) #306581
+
+table(Ped.vaxdata$Age, Ped.vaxdata$Fully_vax, useNA = "ifany")
+table(Ped.vaxdata$Age, Ped.vaxdata$labresult, useNA = "ifany")
+
 merged.data2.trunc %>%
-  filter(Age>=12) -> merged.data2.trunc
+  filter(Age>=12) -> merged.data2.trunc #1807116
 
 #Restrict data after 2021-04-01 to those with PCR/POC tests
 merged.data2.trunc %>%
-  filter(Grouping!="Antibody IgG" & Grouping != "Not Mapped")-> merged.data2.trunc
+  filter(Grouping!="Antibody IgG" & Grouping != "Not Mapped")-> merged.data2.trunc #1799790
 #Those not mapped are test for Ab spike protein 
 
-#Use only first positive test (this is since 2021-04-01)
-merged.data2.trunc %>%
-  group_by(PatientID) %>%
-  filter(Test_date <= min(Test_date[labresult=="POSITIVE"])) -> merged.data2.trunc
 
-##Remove tests done within 15 days of the first test 
+
+#Use only first positive test (this is since 2021-04-01)
+twopostest<- test %>%
+  group_by(PatientID) %>% 
+  filter(n_distinct(Test_date[labresult == "POSITIVE"]) > 1)
+
+n_distinct(twopostest$PatientID) # 3161 patients had multiple positive tests
+twopostest <- as.data.table(twopostest)
+
+twopostest <- twopostest %>%
+  group_by(PatientID) %>%
+  mutate(interval = last.pos - Test_date[labresult == "POSITIVE"])
+  
+twopostest[interval>90, n_distinct(PatientID)] #15
+
+#Only 15 patients had second positive test >90 days after first positive so exclude all second positive tests 
+test %>%
+  group_by(PatientID) %>%
+  filter(Test_date <= min(Test_date[labresult=="POSITIVE"])) -> test #1763212
+
+##Remove false negative tests
 merged.data2.trunc %>% 
   arrange(PatientID, Test_date) -> merged.data2.trunc
 
@@ -563,16 +607,56 @@ merged.data2.trunc <- as.data.table(merged.data2.trunc)
 merged.data2.trunc[,
                    interval := difftime(Test_date, lag(Test_date), units="days"),
                    , by =.(PatientID)] 
+beep()
 
 merged.data2.trunc %>%
-  filter(interval >15 | is.na(interval) | labresult=="POSITIVE") -> merged.data2.trunc
+  group_by(PatientID) %>%
+  mutate(tmp = ifelse(all(labresult=="NEGATIVE") & interval>0 & interval <8, 1, 0)) %>%
+  filter(tmp ==0 | is.na(tmp))-> merged.data2.trunc #remove negative tests done within one week of each other
+beep()
+
+merged.data2.trunc <- as.data.table(merged.data2.trunc)
+merged.data2.trunc[,
+                   interval1 := difftime(Test_date[labresult=="POSITIVE"], Test_date, units="days"),
+                   , by =.(PatientID)] # remove negative tests done within 21 days of positive tests #1678721
+beep()
+
+merged.data2.trunc <- merged.data2.trunc %>%
+  group_by(PatientID) %>%
+  mutate(tmp1 = ifelse(any(labresult=="POSITIVE") & interval>0 & interval <21, 1, 0)) %>%
+  filter(tmp1 == 0 | is.na(tmp1)) #Remove any negative test done within 3 weeks before or after a positive test #1667699
+beep()
+
+##Remove those who tested positive 90 days before 2021/04/01
+merged.data2.trunc <- as.data.table(merged.data2.trunc)
+merged.data2.trunc[,
+  time.since.inf := difftime(Test_date, first.pos, units="days")] 
+
+merged.data2.trunc$time.since.inf[merged.data2.trunc$time.since.inf== "-Inf"] <- NA
+
+test <-merged.data2.trunc[time.since.inf<45,]
+#length(unique(test$PatientID))
+merged.data2.trunc<- as.data.table(merged.data2.trunc)
+merged.data2.trunc <- merged.data2.trunc[time.since.inf<1 | time.since.inf>45 | is.na(time.since.inf),] #Keep those who tests positive the first time after study start, who tested more than 45 days before study start, and who never received a previous positive test
+#1659068 
+
+mean(merged.data2.trunc$time.since.inf, na.rm=T)
+median(vax.data$time.since.inf[vax.data$time.since.inf>0], na.rm=T)
+hist(as.numeric(vax.data$time.since.inf[vax.data$time.since.inf>0]), na.rm=T)
 
 
+#Resolve incongruent vaccination info on different days 
 merged.data2.trunc <- merged.data2.trunc %>% 
   group_by(PatientID, Vax_date) %>% 
-  mutate(vaxstatus = ifelse(( n_distinct(Vaccine) > 1), Vaccine[Vax_date==max(Vax_date)], Vaccine),
+  mutate(vaxstatus = ifelse(( n_distinct(Vax_rec) > 1), Vax_rec[Vax_date==max(Vax_date)], Vax_rec),
          vaxname = ifelse((n_distinct(Vax_manu) > 1), Vax_manu[Vax_date==max(Vax_date)], Vax_manu),
          fully_vax = ifelse(( n_distinct(Fully_vax) > 1), Fully_vax[Vax_date==max(Vax_date)], Fully_vax))
+
+merged.data2.trunc %>%
+  group_by(PatientID, Vax_date) %>% 
+  mutate(incongruent =  ifelse(n_distinct(Vax_rec) > 1, 1,0)) %>%
+  filter(incongruent>0) -> test
+
 
 merged.data2.trunc <- merged.data2.trunc %>%
   group_by(PatientID) %>%
@@ -580,8 +664,14 @@ merged.data2.trunc <- merged.data2.trunc %>%
                                   ifelse((n_distinct(vaxstatus) > 1), vaxstatus[Vax_date==max(Vax_date)], NA_character_)),
          final_vaxdate = ifelse((n_distinct(vaxstatus) ==1), min(Vax_date),
                                 ifelse((n_distinct(vaxstatus) > 1), max(Vax_date), NA_character_)), 
-         final_fully_vax = ifelse((n_distinct(Fully_vax) == 1), Fully_vax, 
-                                  ifelse(( n_distinct(Fully_vax) > 1), Fully_vax[Vax_date==max(Vax_date)], NA_character_)))
+         final_fully_vax = ifelse((n_distinct(fully_vax) == 1), fully_vax, 
+                                  ifelse(( n_distinct(fully_vax) > 1), fully_vax[Vax_date==max(Vax_date)], NA_character_)))
+
+merged.data2.trunc %>%
+  group_by(PatientID) %>% 
+  mutate(incongruent.vaxstatus =  ifelse(n_distinct(vaxstatus) > 1, 1,0),
+         incongruent.fullyvax =  ifelse(n_distinct(fully_vax) > 1, 1,0)) %>%
+  filter(incongruent.vaxstatus>0 | incongruent.fullyvax>0) -> test
 
 
 str(merged.data2.trunc$final_vaxdate)                            
@@ -608,8 +698,10 @@ merged.data2.trunc %>%
 #Previous infection based on any test
 merged.data2.trunc %>%
   group_by(PatientID) %>%
-  mutate(prev.inf = ifelse(first.pos<"2021-04-01", "Yes", "No")) ->merged.data2.trunc #get date of first Ab positive test to get prev infection based on Ab test
+  mutate(prev.inf = ifelse((first.pos>="2021-04-01" | is.na(first.pos)), "No", "Yes")) ->merged.data2.trunc #get date of first Ab positive test to get prev infection based on Ab test
 
+
+table(merged.data2.trunc$prev.inf, useNA = "ifany")
 
 #Create variable for total number of previous tests
 merged.data2.trunc %>%
@@ -637,7 +729,13 @@ merged.data2.trunc$biweekly.period[merged.data2.trunc$Test_date>"2021-05-27" & m
 merged.data2.trunc$biweekly.period[merged.data2.trunc$Test_date>"2021-06-10" & merged.data2.trunc$Test_date<="2021-06-24"] <- 6
 merged.data2.trunc$biweekly.period[merged.data2.trunc$Test_date>"2021-06-24" & merged.data2.trunc$Test_date<="2021-07-08"] <- 7
 merged.data2.trunc$biweekly.period[merged.data2.trunc$Test_date>"2021-07-08" & merged.data2.trunc$Test_date<="2021-07-22"] <- 8
-merged.data2.trunc$biweekly.period[merged.data2.trunc$Test_date>"2021-07-22"] <- 9
+merged.data2.trunc$biweekly.period[merged.data2.trunc$Test_date>"2021-07-22" & merged.data2.trunc$Test_date<="2021-08-05"] <- 9
+merged.data2.trunc$biweekly.period[merged.data2.trunc$Test_date>"2021-08-05" & merged.data2.trunc$Test_date<="2021-08-19"] <- 10
+merged.data2.trunc$biweekly.period[merged.data2.trunc$Test_date>"2021-08-19" & merged.data2.trunc$Test_date<="2021-09-02"] <- 11
+merged.data2.trunc$biweekly.period[merged.data2.trunc$Test_date>"2021-09-02" & merged.data2.trunc$Test_date<="2021-09-16"] <- 12
+merged.data2.trunc$biweekly.period[merged.data2.trunc$Test_date>"2021-09-16" & merged.data2.trunc$Test_date<="2021-09-30"] <- 13
+merged.data2.trunc$biweekly.period[merged.data2.trunc$Test_date>"2021-09-30" & merged.data2.trunc$Test_date<="2021-10-14"] <- 14
+merged.data2.trunc$biweekly.period[merged.data2.trunc$Test_date>="2021-10-14"] <- 15
 
 
 
@@ -651,6 +749,13 @@ merged.data2.trunc%>%
   group_by(biweekly.period) %>%
   summarise(n=n_distinct(PatientID))
 
+test <- merged.data2.trunc %>%
+  filter(biweekly.period==15)
+
+test.dup <- test[duplicated((test$PatientID)),]
+
+##The duplicates in each period are due to ppl getting PCR + antigen test on the same day and coming positive in one or both tests
+
 #Merge Vital stats data
 VitalSigns <- read_delim("/Users/madhurarane/Documents/CityMD/CUNY_VitalSigns.csv", delim="|",escape_double = FALSE, trim_ws = TRUE)
 #restrict dates 
@@ -658,7 +763,7 @@ VitalSigns$`Adjusted Visit Date` <- as.Date(VitalSigns$`Adjusted Visit Date`, fo
 
 VitalSigns %>%
   filter(`Adjusted Visit Date`>="2021-04-01") -> VitalSigns
-#7602099
+#2627815
 
 #select temp, oxygen, BMI
 VitalSigns %>%
@@ -669,7 +774,7 @@ VitalSigns %>%
 
 #removed records if NA for all
 VitalSigns <- VitalSigns[!is.na(VitalSigns$O2sat) & !is.na(VitalSigns$Temp) & !is.na(VitalSigns$BMI),]
-#6104968
+#2208884
 
 #check if any missing
 sum(is.na(VitalSigns$O2sat))
@@ -690,7 +795,7 @@ n_distinct(VitalSigns$VisitID)
 
 #check overlap in patient ID
 mean(merged.data2.trunc$PatientID %in% VitalSigns$PatientID)
-#[1] 89%
+#[1] 90.3%
 
 #merge with covidresults
 merged.data2.trunc <- left_join(merged.data2.trunc, VitalSigns, by = c("PatientID", "VisitID"))
@@ -722,7 +827,7 @@ MedHist$`Adjusted Visit Date` <- as.Date(MedHist$`Adjusted Visit Date`, format="
 
 MedHist %>%
   filter(`Adjusted Visit Date`>="2021-04-01") -> MedHist
-#4.9 mil
+#1885357
 
 
 MedHist %>%
@@ -890,12 +995,13 @@ MedHist.w <- MedHist.w[,c(1,12:21)]
 
 #check overlap in patient ID
 mean(merged.data2.trunc$VisitID %in% MedHist$VisitID)
-#[1]  9.5%
+#[1]  21.9%
 
 #merge with covidresults
 merged.data2.trunc <- left_join(merged.data2.trunc, MedHist.w, by = c("VisitID"))
 
 #No. of pts with comorbidities
+merged.data2.trunc <- as.data.table(merged.data2.trunc)
 merged.data2.trunc[ (category_1=="Heart Disease" | category_2=="Heart Disease"|category_3=="Heart Disease"|
                        category_4=="Heart Disease" | category_5=="Heart Disease" | category_6=="Heart Disease" |
                        category_7=="Heart Disease" | category_8=="Heart Disease" | category_9=="Heart Disease" |
@@ -919,11 +1025,11 @@ merged.data2.trunc[(category_1=="Depression/anxiety" | category_2=="Depression/a
 
 
 ##Symptoms data based on Emily S. code
-
+##Re-run the following code on the entire ChiefCompliants dataset and then merge with truncated vaccine dataset using VisitID. This is because of the way vaccination data was abstrated from chiefcomplaints earlier
 #Renaming components of the merged chief complaints table and coercing all character values to upper case
-merged.data2.trunc %>%
+ChiefComplaint %>%
   rename(D1=`Diagnosis 1`, D2=`Diagnosis 2`, D3=`Diagnosis 3`, D4=`Diagnosis 4`)%>%
-  mutate_if(is.character, str_to_upper)-> merged.data2.trunc
+  mutate_if(is.character, str_to_upper)-> ChiefComplaint
 
 #Generating lists of chosen symptoms
 chills_terms=c("CHILLS", "CHILLS (WITHOUT FEVER)", "CHILLS WITH FEVER",
@@ -994,7 +1100,7 @@ chest.pain_terms=c("ACUTE CHEST PAIN", "ATYPICAL CHEST PAIN", "CHEST PAIN", "CHE
 confusion_terms=c("ALTERED MENTAL STATE", "ALTERED MENTAL STATUS", "ALTERED MENTAL STATUS, UNSPECIFIED", "CONFUSION")
 
 #Creating symptom categories out of the chief complaints dataset using the symptoms lists
-merged.data2.trunc<-merged.data2.trunc %>%
+ChiefComplaint<-ChiefComplaint %>%
   mutate(chills = ifelse(Complaint %in% chills_terms|
                            D1 %in% chills_terms|
                            D2 %in% chills_terms|
@@ -1074,13 +1180,25 @@ rm(body.ache_terms, chest.pain_terms, chills_terms, confusion_terms, cough_terms
 #COVID case definition: At least two of the following symptoms: fever (measured or subjective), chills, rigors, myalgia, headache, sore throat, new olfactory and taste disorder(s)
 #OR At least one of the following symptoms: cough, shortness of breath, or difficulty breathing
 
+tmp <- ChiefComplaint %>%
+  select(VisitID, chills:confusion) 
+
+tmp %>%
+  group_by(VisitID) %>%
+  slice_tail() -> tmp
+
+
+merged.data2.trunc  <- left_join(merged.data2.trunc, tmp, by="VisitID")
+
+
+
 merged.data2.trunc %>%
   mutate(fever.final = ifelse(fever=="Yes" | Fever.vitalsigns==1, "Yes", "No"),
          symptomatic.case = ifelse((fever.final=="Yes" | chills=="Yes" | cough =="Yes" | sore.throat=="Yes" | fatigue=="Yes" | headache=="Yes"|
                                       confusion=="Yes" | taste.smell=="Yes" | sob=="Yes" | diarrhea=="Yes" | chest.pain=="Yes" | nausea.vomit=="Yes" |
                                       congestion.nose=="Yes" | body.ache=="Yes" | O2.vitalsigns==1), 1,0)) -> merged.data2.trunc
 
-table(merged.data2.trunc$symptomatic.case)
+table(merged.data2.trunc$symptomatic.case) #196276
 
 #Create variable for no. of visits per person
 merged.data2.trunc %>%
@@ -1114,8 +1232,8 @@ library(table1)
 vax.data %>%
   group_by(PatientID)%>%
   mutate(ever.positive =  ifelse(labresult=="POSITIVE", 1,0)) -> vax.data
-
-vax.data[ever.positive==1, n_distinct(PatientID)]
+vax.data<- as.data.table(vax.data)
+vax.data[ever.positive==1, n_distinct(PatientID)] #62210
 
 #ever symptomatic
 vax.data %>%
@@ -1130,10 +1248,28 @@ vax.data %>%
 
 table(vax.data$comorbidity)
 
+#ever covid positive
+merged.data2.trunc %>%
+  group_by(PatientID)%>%
+  mutate(ever.positive =  ifelse(labresult=="POSITIVE", 1,0)) -> merged.data2.trunc
+merged.data2.trunc<- as.data.table(merged.data2.trunc)
+merged.data2.trunc[ever.positive==1, n_distinct(PatientID)] #62210
 
+#ever symptomatic
+merged.data2.trunc %>%
+  group_by(PatientID)%>%
+  mutate(ever.symptomatic =  ifelse(symptomatic.case==1, 1,0)) -> merged.data2.trunc
+
+merged.data2.trunc %>%
+  group_by(PatientID)%>%
+  mutate(comorbidity =  ifelse((!is.na(category_1) | !is.na(category_2 )| !is.na(category_3) | !is.na(category_4) |
+                                  !is.na(category_5) | !is.na(category_6) | !is.na(category_7) |
+                                  !is.na(category_8) | !is.na(category_9) | !is.na(category_10)), 1, 0)) -> merged.data2.trunc
+
+table(merged.data2.trunc$comorbidity)
 
 #pick last row by ID to create table 1
-vax.data %>%
+merged.data2.trunc %>%
   group_by(PatientID) %>%
   slice_tail() -> vax.data.tbl1
 
@@ -1143,19 +1279,23 @@ table(vax.data.tbl1$final_vaxstatus, useNA="ifany")
 
 vax.data.tbl1 %>%
   group_by(PatientID)%>%
-  mutate(final_fully_vax.cat = ifelse(final_vaxstatus=="YES" & final_fully_vax=="YES", "Fully",
-                                      ifelse(final_vaxstatus=="YES" & (final_fully_vax=="NO" | is.na(final_fully_vax)), "Partial",
-                                             ifelse(final_vaxstatus=="NO" & (final_fully_vax=="NO" | is.na(final_fully_vax) | final_fully_vax=="YES") , "Unvaccinated", NA_character_)))) -> vax.data.tbl1
+  mutate(final_fully_vax.cat = ifelse(final_vaxstatus=="Yes" & final_fully_vax=="Yes", "Fully",
+                                      ifelse(final_vaxstatus=="Yes" & (final_fully_vax=="No" | is.na(final_fully_vax)), "Partial",
+                                             ifelse(final_vaxstatus=="No" & (final_fully_vax=="No" | is.na(final_fully_vax) | final_fully_vax=="Yes") , "Unvaccinated", NA_character_)))) -> vax.data.tbl1
 
 table(vax.data.tbl1$final_fully_vax.cat, useNA="ifany")
-#87363 are NA but have at least one vaccine so recategorize as partial
+
+#123491  are NA but have at least one vaccine so recategorize as partial
+
+#Some of the partially vaccinated could be J&J vaccines 
+vax.data.tbl1$final_fully_vax.cat[is.na(vax.data.tbl1$final_fully_vax.cat) & vax.data.tbl1$vaxname=="Johnson & Johnson"] <- "Fully"
 
 vax.data.tbl1$final_fully_vax.cat[is.na(vax.data.tbl1$final_fully_vax.cat)] <- "Partial"
 
 
 vax.data.tbl1$final_vaxstatus <- 
   factor(vax.data.tbl1$final_vaxstatus, 
-         levels=c("YES","NO"),
+         levels=c("Yes","No"),
          labels=c("Vaccinated", 
                   "Unvaccinated"))
 vax.data.tbl1$final_fully_vax.cat <- 
@@ -1182,12 +1322,12 @@ vax.data.tbl1$Gender <-
 
 vax.data.tbl1$racecat <-
   factor(vax.data.tbl1$racecat,
-         levels = c("WHITE", "BLACK/AFRAM", "HISPANIC", "NATIVE AMERICAN/ALASKAN NATIVE/PACIFIC ISLANDER", "ASIAN", "OTHER/UNKNOWN"),
+         levels = c("White", "Black/AfrAm", "Hispanic", "Native American/Alaskan Native/Pacific Islander", "Asian", "Other/Unknown"),
          labels = c("White NH","Black NH","Hispanic", "Nat Am./Pac Is./Al Nat.","Asian","Other/Unknown"))
 
 vax.data.tbl1$Region <-
   factor(vax.data.tbl1$Region,
-         levels = c("BRONX", "BROOKLYN", "MANHATTAN", "QUEENS", "STATEN ISLAND", "LONG ISLAND", "METRO NORTH"),
+         levels = c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island", "Long Island", "Metro North"),
          labels = c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island", "Long Island", "Westchester"))
 
 vax.data.tbl1$ever.positive <-
@@ -1202,7 +1342,7 @@ vax.data.tbl1$ever.symptomatic <-
 
 vax.data.tbl1$prev.inf <-
   factor(vax.data.tbl1$prev.inf,
-         levels = c("YES","NO"),
+         levels = c("Yes","No"),
          labels = c("Yes","No"))
 
 
@@ -1214,13 +1354,18 @@ vax.data.tbl1$Exp.risk <-
 
 vax.data.tbl1$`Rapid Order Patient Symptomatic` <- 
   factor(vax.data.tbl1$`Rapid Order Patient Symptomatic`,
-         levels = c("YES","NO"),
+         levels = c("Yes","No"),
          labels = c("Yes","No"))
 
 vax.data.tbl1$comorbidity <- 
   factor(vax.data.tbl1$comorbidity,
          levels = c(1,0),
          labels = c("Yes", "No"))
+
+vax.data.tbl1$BMI_cat <- 
+  factor(vax.data.tbl1$BMI_cat,
+         levels = c("Healthy","Obese",  "Overweight", "Underweight"),
+         labels = c("Healthy","Obese",  "Overweight", "Underweight"))
 
 label(vax.data.tbl1$agecat) <- "Age"
 label(vax.data.tbl1$Gender) <- "Sex"
@@ -1232,7 +1377,8 @@ label(vax.data.tbl1$`Rapid Order Patient Symptomatic`) <- "Symptomatic at rapid 
 label(vax.data.tbl1$prev.inf) <- "Previous COVID infection"
 label(vax.data.tbl1$Exp.risk) <- "High exposure to COVID"
 label(vax.data.tbl1$comorbidity) <- "Comorbidities"
-label(vax.data.tbl1$final_fully_vax.cat) <- "COVID-19 vaccination status"
+label(vax.data.tbl1$final_vaxstatus) <- "COVID-19 vaccination status"
+label(vax.data.tbl1$BMI_cat) <- "BMI"
 
 pvalue <- function(x, ...) {
   # Construct vectors of data y, and groups (strata) g
@@ -1249,16 +1395,52 @@ pvalue <- function(x, ...) {
   # The initial empty string places the output on the line below the variable label.
   c("", sub("<", "&lt;", format.pval(p, digits=3, eps=0.001)))
 }
-table1(~ agecat+ Gender  | final_fully_vax.cat , 
+
+
+table1(~ agecat+ Gender + racecat + Region + ever.positive +
+         + ever.symptomatic + prev.inf + Exp.risk + `Rapid Order Patient Symptomatic` + comorbidity + BMI_cat + vaxname| final_fully_vax.cat , 
        overall=F, extra.col=list(`P-value`=pvalue),data=vax.data.tbl1)
 
 
 chisq.test(vax.data.tbl1$final_vaxstatus, vax.data.tbl1$prev.inf)
 
 
-table1(~ agecat+ Gender + racecat + Region + final_vaxstatus
-       + ever.symptomatic + prev.inf + Exp.risk + `Rapid Order Patient Symptomatic` + comorbidity | ever.positive , 
+table1(~ agecat+ Gender +  Region + final_fully_vax.cat +racecat
+       + ever.symptomatic + prev.inf + Exp.risk + `Rapid Order Patient Symptomatic` + comorbidity + BMI_cat + vaxname| ever.positive , 
        overall=F, extra.col=list(`P-value`=pvalue),data=vax.data.tbl1)
+
+#Missing vaccine data 
+Missing_vax$agecat = NA
+Missing_vax$agecat[Missing_vax$Age<19] <- "12-18"
+Missing_vax$agecat[Missing_vax$Age>=19 & Missing_vax$Age<30] <- "19-29"
+Missing_vax$agecat[Missing_vax$Age>=30 & Missing_vax$Age<40] <- "30-39"
+Missing_vax$agecat[Missing_vax$Age>=40 & Missing_vax$Age<50] <- "40-49"
+Missing_vax$agecat[Missing_vax$Age>=50 & Missing_vax$Age<60] <- "50-59"
+Missing_vax$agecat[Missing_vax$Age>=60 & Missing_vax$Age<70] <- "60-69"
+Missing_vax$agecat[Missing_vax$Age>=70 & Missing_vax$Age<80] <- "70-79"
+Missing_vax$agecat[Missing_vax$Age>=80] <- ">=80"
+
+
+Missing_vax %>%
+  group_by(PatientID)%>%
+  mutate(ever.positive =  ifelse(labresult=="POSITIVE", 1,0)) -> Missing_vax
+Missing_vax<- as.data.table(Missing_vax)
+
+#ever symptomatic
+Missing_vax %>%
+  group_by(PatientID)%>%
+  mutate(ever.symptomatic =  ifelse(symptomatic.case==1, 1,0)) -> Missing_vax
+
+Missing_vax %>%
+  group_by(PatientID)%>%
+  mutate(comorbidity =  ifelse((!is.na(category_1) | !is.na(category_2 )| !is.na(category_3) | !is.na(category_4) |
+                                  !is.na(category_5) | !is.na(category_6) | !is.na(category_7) |
+                                  !is.na(category_8) | !is.na(category_9) | !is.na(category_10)), 1, 0)) -> Missing_vax
+
+
+table1(~ agecat+ Gender +  Region + racecat
+       + ever.symptomatic + prev.inf + Exp.risk + `Rapid Order Patient Symptomatic` + comorbidity + BMI_cat  , 
+       overall=F, extra.col=list(`P-value`=pvalue),data=Missing_vax)
 
 vax.data.tbl1$final_fully_vax[is.na(vax.data.tbl1$final_fully_vax)] <- "NO"
 
@@ -1277,113 +1459,283 @@ vax.data$UHF[vax.data$UHF=="DOWNTOWN - HEIGHTS - PARK SLOPE"] <- "DOWNTOWN  - HE
 vax.data<- left_join(vax.data, NYC_UHF_demog, by="UHF")
 
 
+##Separate out J&J vaccine 
+JandJ <- merged.data2.trunc %>%
+  filter(vaxname=="Johnson & Johnson" | is.na(vaxname))
 
+vax.data %>%
+  filter(vaxname!= "Johnson & Johnson" | is.na(vaxname)) -> vax.data #1596864
 
-##partial vs. fully vax 
+##partial vs. fully vax for 2 dose mRNA vaccines
 vax.data$vaxstatus1 = NA
-vax.data$vaxstatus1[vax.data$vaxstatus=="YES" & vax.data$fully_vax=="YES"] <- "Fully"
-vax.data$vaxstatus1[vax.data$vaxstatus=="YES" & (vax.data$fully_vax=="NO" | is.na(vax.data$fully_vax))] <- "Partially"
-vax.data$vaxstatus1[vax.data$vaxstatus=="NO"] <- "Unvaccinated"
+vax.data$vaxstatus1[(vax.data$vaxstatus=="Yes" & vax.data$fully_vax=="Yes")] <- "Fully"
+vax.data$vaxstatus1[vax.data$vaxstatus=="Yes" & (vax.data$fully_vax=="No" | is.na(vax.data$fully_vax))] <- "Partially"
+vax.data$vaxstatus1[vax.data$vaxstatus=="No"] <- "Unvaccinated"
 
 table(vax.data$vaxstatus1, useNA = "ifany")
 
+vax.data<- as.data.table(vax.data)
+vax.data %>%
+  group_by(vaxstatus1, labresult) %>%
+  summarise(n=n_distinct(PatientID))
 
+
+vax.data.tbl1<- as.data.table(vax.data.tbl1)
+vax.data.tbl1 %>%
+  group_by(vaxstatus1, labresult) %>%
+  summarise(n=n_distinct(PatientID))
+
+##### GLM models #########
 #Model 1 
 vax.data$vaxstatus1 <- relevel(factor(vax.data$vaxstatus1), ref="Unvaccinated")
-model1 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & biweekly.period==1,], family = binomial(link="logit"))
+
+model1 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period ==1,], family = binomial(link="logit"))
 summary(model1)
-exp(coef(model1))
+1-exp(coef(model1))
 1-exp(confint(model1))
 
 
 model1.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
-                + factor(comorbidity) + factor(racecat), data=vax.data[prev.inf=="NO" & biweekly.period==1,], family = binomial(link="logit"))
+                + factor(comorbidity) + factor(racecat) + factor(BMI_cat), data=vax.data[prev.inf=="No" & biweekly.period ==1,], family = binomial(link="logit"))
 summary(model1.1)
-exp(coef(model1.1))
-1-exp(confint(model1.1))
+1-exp(coef(model1.1))
+1-exp(confint.default(model1.1))
 
 
-model2 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & biweekly.period==2,], family = binomial(link="logit"))
+model2 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period == 2,], family = binomial(link="logit"))
 summary(model2)
 1-exp(coef(model2))
 1-exp(confint(model2))
+beep()
 
 model2.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
-                + factor(comorbidity) + factor(racecat), data=vax.data[prev.inf=="NO" & biweekly.period==2,], family = binomial(link="logit"))
+                + factor(comorbidity) + factor(racecat) + factor(BMI_cat), data=vax.data[prev.inf=="No" & biweekly.period ==2,], family = binomial(link="logit"))
 summary(model2.1)
 1-exp(coef(model2.1))
-1-exp(confint(model2.1))
+1-exp(confint.default(model2.1))
+beep()
 
-
-model3 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & biweekly.period==3,], family = binomial(link="logit"))
+model3 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period==3,], family = binomial(link="logit"))
 summary(model3)
 1-exp(coef(model3))
 1-exp(confint(model3))
+beep()
 
 model3.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
-                + factor(comorbidity) + factor(racecat), data=vax.data[prev.inf=="NO" & biweekly.period==3,], family = binomial(link="logit"))
+                + factor(comorbidity) + factor(racecat) + factor(BMI_cat), data=vax.data[prev.inf=="No" & biweekly.period==3,], family = binomial(link="logit"))
 summary(model3.1)
 1-exp(coef(model3.1))
-1-exp(confint(model3.1))
+1-exp(confint.default(model3.1))
 
 
-model4 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & biweekly.period==4,], family = binomial(link="logit"))
+model4 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period==4,], family = binomial(link="logit"))
 summary(model4)
 1-exp(coef(model4))
 1-exp(confint(model4))
 
-model4.1<- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
-               + factor(racecat) , data=vax.data[prev.inf=="NO" & biweekly.period==4,], family = binomial(link="logit"))
+model4.1<- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk) + factor(comorbidity)
+               + factor(racecat)+ factor(BMI_cat), data=vax.data[prev.inf=="No" & biweekly.period==4,], family = binomial(link="logit"))
 summary(model4.1)
 1-exp(coef(model4.1))
-1-exp(confint(model4.1))
+1-exp(confint.default(model4.1))
 
 
-model5 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & biweekly.period==5,], family = binomial(link="logit"))
+model5 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period==5,], family = binomial(link="logit"))
 summary(model5)
 1-exp(coef(model5))
 1-exp(confint(model5))
 
-model5.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
-                + factor(racecat), data=vax.data[prev.inf=="NO" & biweekly.period==5,], family = binomial(link="logit"))
+model5.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk) + factor(comorbidity)
+                + factor(racecat) + factor(BMI_cat), data=vax.data[prev.inf=="No" & biweekly.period==5,], family = binomial(link="logit"))
 summary(model5.1)
 1-exp(coef(model5.1))
-1-exp(confint(model5.1))
+1-exp(confint.default(model5.1))
 
 
-model6 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & biweekly.period==6,], family = binomial(link="logit"))
+model6 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period==6,], family = binomial(link="logit"))
 summary(model6)
 1-exp(coef(model6))
 1-exp(confint(model6))
 
-model6.1 <- glm(factor(labresult) ~ factor(vaxstatus1)  + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
-                + factor(racecat), data=vax.data[prev.inf=="NO" & biweekly.period==6,], family = binomial(link="logit"))
+model6.1 <- glm(factor(labresult) ~ factor(vaxstatus1)  + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk) + factor(comorbidity)
+                + factor(racecat) + factor(BMI_cat), data=vax.data[prev.inf=="No" & biweekly.period==6,], family = binomial(link="logit"))
 summary(model6.1)
 1-exp(coef(model6.1))
-1-exp(confint(model6.1))
+1-exp(confint.default(model6.1))
 
-model7 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & biweekly.period==7,], family = binomial(link="logit"))
+model7 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period==7,], family = binomial(link="logit"))
 summary(model7)
 1-exp(coef(model7))
 1-exp(confint(model7))
 
-model7.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
-                + factor(racecat), data=vax.data[prev.inf=="NO" & biweekly.period==7,], family = binomial(link="logit"))
+model7.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk) + factor(comorbidity)
+                + factor(racecat) + factor(BMI_cat), data=vax.data[prev.inf=="No" & biweekly.period==7,], family = binomial(link="logit"))
 summary(model7.1)
 1-exp(coef(model7.1))
-1-exp(confint(model7.1))
+1-exp(confint.default(model7.1))
 
-model8 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & biweekly.period==8,], family = binomial(link="logit"))
+model8 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period==8,], family = binomial(link="logit"))
 summary(model8)
 1-exp(coef(model8))
 1-exp(confint(model8))
 
 
-model8.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
-                + factor(racecat), data=vax.data[prev.inf=="NO" & biweekly.period==8 ,], family = binomial(link="logit"))
+model8.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk) + factor(comorbidity)
+                + factor(racecat) + factor(BMI_cat), data=vax.data[prev.inf=="No" & biweekly.period==8 ,], family = binomial(link="logit"))
 summary(model8.1)
 1-exp(coef(model8.1))
-1-exp(confint(model8.1))
+1-exp(confint.default(model8.1))
+
+
+
+model9 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period==9,], family = binomial(link="logit"))
+summary(model9)
+1-exp(coef(model9))
+1-exp(confint(model9))
+
+
+model9.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk) + factor(comorbidity) +
+                  factor(racecat) + factor(BMI_cat), data=vax.data[prev.inf=="No" & biweekly.period==9,], family = binomial(link="logit"))
+summary(model9.1)
+1-exp(coef(model9.1))
+1-exp(confint.default(model9.1))
+
+
+model10 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period==10,], family = binomial(link="logit"))
+summary(model10)
+1-exp(coef(model10))
+1-exp(confint.default(model10))
+
+
+model10.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk) + factor(comorbidity) +
+                   factor(racecat) + factor(BMI_cat)
+                , data=vax.data[prev.inf=="No" & biweekly.period==10,], family = binomial(link="logit"))
+summary(model10.1)
+1-exp(coef(model10.1))
+1-exp(confint.default(model10.1))
+
+model11 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period==11,], family = binomial(link="logit"))
+summary(model11)
+1-exp(coef(model11))
+1-exp(confint.default(model11))
+
+
+model11.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk) + factor(comorbidity) +
+                   factor(racecat) + factor(BMI_cat)
+                 , data=vax.data[prev.inf=="No" & biweekly.period==11,], family = binomial(link="logit"))
+summary(model11.1)
+1-exp(coef(model11.1))
+1-exp(confint.default(model11.1))
+
+model12 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period==12,], family = binomial(link="logit"))
+summary(model12)
+1-exp(coef(model12))
+1-exp(confint.default(model12))
+
+model12.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk) + factor(comorbidity) +
+                   factor(racecat) + factor(BMI_cat)
+                 , data=vax.data[prev.inf=="No" & biweekly.period==12,], family = binomial(link="logit"))
+summary(model12.1 )
+1-exp(coef(model12.1 ))
+1-exp(confint.default(model12.1 ))
+
+
+model13 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period==13,], family = binomial(link="logit"))
+summary(model13)
+1-exp(coef(model13))
+1-exp(confint.default(model13))
+
+model13.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk) + factor(comorbidity) +
+                   factor(racecat) + factor(BMI_cat)
+                 , data=vax.data[prev.inf=="No" & biweekly.period==13,], family = binomial(link="logit"))
+summary(model13.1)
+1-exp(coef(model13.1))
+1-exp(confint.default(model13.1))
+
+model14 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period==14,], family = binomial(link="logit"))
+summary(model14)
+1-exp(coef(model14))
+1-exp(confint(model14))
+
+model14.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk) + factor(comorbidity) +
+                   factor(racecat) + factor(BMI_cat)
+                 , data=vax.data[prev.inf=="No" & biweekly.period==14,], family = binomial(link="logit"))
+summary(model14.1)
+1-exp(coef(model14.1))
+1-exp(confint.default(model14.1))
+
+model15 <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period==15,], family = binomial(link="logit"))
+summary(model15)
+1-exp(coef(model15))
+1-exp(confint(model15))
+
+model15.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk) +  factor(comorbidity) +
+                   factor(racecat) + factor(BMI_cat) 
+                 , data=vax.data[prev.inf=="No" & biweekly.period==15,], family = binomial(link="logit"))
+summary(model15.1)
+1-exp(coef(model15.1))
+1-exp(confint.default(model15.1))
+
+vax.data[prev.inf=="No" & biweekly.period==15, n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & biweekly.period==15 & labresult=="POSITIVE" & vaxstatus1 == "Fully", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & biweekly.period==15 & labresult=="POSITIVE" & vaxstatus1 == "Unvaccinated", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & biweekly.period==15 & labresult=="POSITIVE" & vaxstatus1 == "Partially", n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & biweekly.period==15 & labresult=="NEGATIVE" & vaxstatus1 == "Fully", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & biweekly.period==15 & labresult=="NEGATIVE" & vaxstatus1 == "Unvaccinated", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & biweekly.period==15 & labresult=="NEGATIVE" & vaxstatus1 == "Partially", n_distinct(PatientID)]
+
+
+##Model set: Pre. vs. post delta 
+
+vax.data[prev.inf=="No" & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & biweekly.period %in% c(1,2,3,4,5) & labresult=="POSITIVE" & vaxstatus1=="Unvaccinated",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & biweekly.period %in% c(1,2,3,4,5) & labresult=="POSITIVE" & vaxstatus1=="Partially",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & biweekly.period %in% c(1,2,3,4,5) & labresult=="POSITIVE" & vaxstatus1=="Fully",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & labresult=="POSITIVE" & vaxstatus1=="Unvaccinated",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & labresult=="POSITIVE" & vaxstatus1=="Partially",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & labresult=="POSITIVE" & vaxstatus1=="Fully",n_distinct(PatientID)]
+
+
+model.predelta <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
+summary(model.predelta)
+1-exp(coef(model.predelta))
+1-exp(confint.default(model.predelta))
+
+
+model.predelta.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk) +  factor(comorbidity) +
+                           factor(racecat) + factor(BMI_cat) 
+                         , data=vax.data[prev.inf=="No" & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
+summary(model.predelta.1)
+1-exp(coef(model.predelta.1))
+1-exp(confint.default(model.predelta.1))
+
+
+model.postdelta <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.postdelta)
+1-exp(coef(model.postdelta))
+1-exp(confint.default(model.postdelta))
+
+model.postdelta.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk) +  factor(comorbidity) +
+                   factor(racecat) + factor(BMI_cat) 
+                 , data=vax.data[prev.inf=="No" & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.postdelta.1)
+1-exp(coef(model.postdelta.1))
+1-exp(confint.default(model.postdelta.1))
+
+
+
 
 ##Model set: symptomatic vs. asymptomatic
 vax.data %>%
@@ -1394,448 +1746,1935 @@ vax.data %>%
 
 vax.data$symptomatic.case[is.na(vax.data$symptomatic.case)] <- 0
 
-model.symp <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & symptomatic.case==1,], family = binomial(link="logit"))
+vax.data[prev.inf=="No" & symptomatic.case==1 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)] 
+vax.data[prev.inf=="No" & symptomatic.case==1 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)] 
+
+vax.data[prev.inf=="No" & symptomatic.case==1 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially", n_distinct(PatientID)] 
+vax.data[prev.inf=="No" & symptomatic.case==1 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially" & labresult=="POSITIVE", n_distinct(PatientID)] 
+
+vax.data[prev.inf=="No" & symptomatic.case==1 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully", n_distinct(PatientID)] 
+vax.data[prev.inf=="No" & symptomatic.case==1 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully" & labresult=="POSITIVE", n_distinct(PatientID)] 
+
+vax.data[prev.inf=="No" & symptomatic.case==1 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)] 
+vax.data[prev.inf=="No" & symptomatic.case==1 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)] 
+
+vax.data[prev.inf=="No" & symptomatic.case==1 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially", n_distinct(PatientID)] 
+vax.data[prev.inf=="No" & symptomatic.case==1 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially" & labresult=="POSITIVE", n_distinct(PatientID)] 
+
+vax.data[prev.inf=="No" & symptomatic.case==1 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully", n_distinct(PatientID)] 
+vax.data[prev.inf=="No" & symptomatic.case==1 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully" & labresult=="POSITIVE", n_distinct(PatientID)] 
+
+vax.data[prev.inf=="No" & symptomatic.case==0 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)] 
+vax.data[prev.inf=="No" & symptomatic.case==0 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)] 
+
+vax.data[prev.inf=="No" & symptomatic.case==0 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially", n_distinct(PatientID)] 
+vax.data[prev.inf=="No" & symptomatic.case==0 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially" & labresult=="POSITIVE", n_distinct(PatientID)] 
+
+vax.data[prev.inf=="No" & symptomatic.case==0 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully", n_distinct(PatientID)] 
+vax.data[prev.inf=="No" & symptomatic.case==0 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully" & labresult=="POSITIVE", n_distinct(PatientID)] 
+
+vax.data[prev.inf=="No" & symptomatic.case==0 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)] 
+vax.data[prev.inf=="No" & symptomatic.case==0 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)] 
+
+vax.data[prev.inf=="No" & symptomatic.case==0 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially", n_distinct(PatientID)] 
+vax.data[prev.inf=="No" & symptomatic.case==0 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially" & labresult=="POSITIVE", n_distinct(PatientID)] 
+
+vax.data[prev.inf=="No" & symptomatic.case==0 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully", n_distinct(PatientID)] 
+vax.data[prev.inf=="No" & symptomatic.case==0 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully" & labresult=="POSITIVE", n_distinct(PatientID)] 
+
+
+
+model.symp <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & symptomatic.case==1 & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
 summary(model.symp)
 1-exp(coef(model.symp))
-1-exp(confint(model.symp))
+1-exp(confint.default(model.symp))
 
 
 model.symp.1 <- glm(factor(labresult) ~  factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
-                    + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="NO" & symptomatic.case==1,], family = binomial(link="logit"))
+                    + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & symptomatic.case==1  & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
 summary(model.symp.1)
 1-exp(coef(model.symp.1))
-1-exp(confint(model.symp.1))
+1-exp(confint.default(model.symp.1))
+beep()
 
 
-model.asymp <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & symptomatic.case==0,], family = binomial(link="logit"))
+model.asymp <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & symptomatic.case==0  & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
 summary(model.asymp)
 1-exp(coef(model.asymp))
-1-exp(confint(model.asymp))
+1-exp(confint.default(model.asymp))
 
 
 model.asymp.1 <- glm(factor(labresult) ~  factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
-                    + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="NO" & symptomatic.case==0,], family = binomial(link="logit"))
+                    + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & symptomatic.case==0 & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
 summary(model.asymp.1)
 1-exp(coef(model.asymp.1))
-1-exp(confint(model.asymp.1))
+1-exp(confint.default(model.asymp.1))
+beep()
+
+model.symp.delta <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & symptomatic.case==1 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.symp.delta)
+1-exp(coef(model.symp.delta))
+1-exp(confint.default(model.symp.delta))
+beep()
+
+model.symp.1.delta <- glm(factor(labresult) ~  factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
+                    + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & symptomatic.case==1  & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.symp.1.delta)
+1-exp(coef(model.symp.1.delta))
+1-exp(confint.default(model.symp.1.delta))
+beep()
+
+model.asymp.delta <- glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & symptomatic.case==0  & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.asymp.delta )
+1-exp(coef(model.asymp.delta))
+1-exp(confint.default(model.asymp.delta))
+beep()
+
+
+model.asymp.1.delta <- glm(factor(labresult) ~  factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
+                     + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & symptomatic.case==0 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.asymp.1.delta)
+1-exp(coef(model.asymp.1.delta))
+1-exp(confint.default(model.asymp.1.delta))
+beep()
+
 
 
 ##By sex
-model.male <-  glm(factor(labresult) ~ factor(vaxstatus1)  + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
-                   + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="NO" & Gender=="M",], family = binomial(link="logit"))
+vax.data[prev.inf=="No" & Gender=="M" &  biweekly.period %in% c(1,2,3,4,5) & vaxstatus1 =="Unvaccinated",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Gender=="M" &  biweekly.period %in% c(1,2,3,4,5) & vaxstatus1 =="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Gender=="M" &  biweekly.period %in% c(1,2,3,4,5) & vaxstatus1 =="Partially",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Gender=="M" &  biweekly.period %in% c(1,2,3,4,5) & vaxstatus1 =="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Gender=="M" &  biweekly.period %in% c(1,2,3,4,5) & vaxstatus1 =="Fully",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Gender=="M" &  biweekly.period %in% c(1,2,3,4,5) & vaxstatus1 =="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Gender=="F" &  biweekly.period %in% c(1,2,3,4,5) & vaxstatus1 =="Unvaccinated",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Gender=="F" &  biweekly.period %in% c(1,2,3,4,5) & vaxstatus1 =="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Gender=="F" &  biweekly.period %in% c(1,2,3,4,5) & vaxstatus1 =="Partially",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Gender=="F" &  biweekly.period %in% c(1,2,3,4,5) & vaxstatus1 =="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Gender=="F" &  biweekly.period %in% c(1,2,3,4,5) & vaxstatus1 =="Fully",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Gender=="F" &  biweekly.period %in% c(1,2,3,4,5) & vaxstatus1 =="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Gender=="M" &  biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1 =="Unvaccinated",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Gender=="M" &  biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1 =="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Gender=="M" &  biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1 =="Partially",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Gender=="M" &  biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1 =="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Gender=="M" &  biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1 =="Fully",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Gender=="M" &  biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1 =="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Gender=="F" &  biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1 =="Unvaccinated",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Gender=="F" &  biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1 =="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Gender=="F" &  biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1 =="Partially",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Gender=="F" &  biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1 =="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Gender=="F" &  biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1 =="Fully",n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Gender=="F" &  biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1 =="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+
+
+model.male <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & Gender=="M" &  biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
 summary(model.male)
 1-exp(coef(model.male))
-1-exp(confint(model.male))
+1-exp(confint.default(model.male))
+beep()
 
 model.male.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat)  + factor(Region) + factor(Exp.risk)
-                     + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="NO" & Gender=="M",], family = binomial(link="logit"))
+                     + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & Gender=="M" & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
 summary(model.male.1)
 1-exp(coef(model.male.1))
-1-exp(confint(model.male.1))
+1-exp(confint.default(model.male.1))
+beep()
 
-model.female <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & Gender=="F",], family = binomial(link="logit"))
+model.female <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & Gender=="F" & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
 summary(model.female)
 1-exp(coef(model.female))
 1-exp(confint(model.female))
 
 model.female.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat)  + factor(Region) + factor(Exp.risk)
-                     + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="NO" & Gender=="F",], family = binomial(link="logit"))
+                     + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & Gender=="F" & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
 summary(model.female.1)
 1-exp(coef(model.female.1))
-1-exp(confint(model.female.1))
+1-exp(confint.default(model.female.1))
+beep()
+
+
+model.male.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & Gender=="M" &  biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.male.delta)
+1-exp(coef(model.male.delta))
+1-exp(confint.default(model.male.delta))
+beep()
+
+model.male.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat)  + factor(Region) + factor(Exp.risk)
+                     + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & Gender=="M" & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.male.1.delta)
+1-exp(coef(model.male.1.delta))
+1-exp(confint.default(model.male.1.delta))
+beep()
+
+model.female.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & Gender=="F" & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.female.delta)
+1-exp(coef(model.female.delta))
+1-exp(confint.default(model.female.delta))
+beep()
+
+model.female.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat)  + factor(Region) + factor(Exp.risk)
+                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & Gender=="F" & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.female.1.delta)
+1-exp(coef(model.female.1.delta))
+1-exp(confint.default(model.female.1.delta))
+beep()
+
+
 
 #By age groups
+vax.data[prev.inf=="No" & Age>=12 & Age<=15 & Test_date>="2021-06-15" & vaxstatus1=="Unvaccinated", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Age>=12 & Age<=15 & Test_date>="2021-06-15" & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE", n_distinct(PatientID)]
 
-model.12to15 <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & Age>=12 & Age<=15,], family = binomial(link="logit"))
+vax.data[prev.inf=="No" & Age>=12 & Age<=15 & Test_date>="2021-06-15" & vaxstatus1=="Partially", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Age>=12 & Age<=15 & Test_date>="2021-06-15" & vaxstatus1=="Partially" & labresult=="POSITIVE", n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Age>=12 & Age<=15 & Test_date>="2021-06-15" & vaxstatus1=="Fully", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Age>=12 & Age<=15 & Test_date>="2021-06-15" & vaxstatus1=="Fully" & labresult=="POSITIVE", n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Age>=16 & Age<=30 & biweekly.period %in% c(3,4,5) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Age>=16 & Age<=30 & biweekly.period %in% c(3,4,5) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE", n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Age>=16 & Age<=30 & biweekly.period %in% c(3,4,5) & vaxstatus1=="Partially", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Age>=16 & Age<=30 & biweekly.period %in% c(3,4,5) & vaxstatus1=="Partially" & labresult=="POSITIVE", n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Age>=16 & Age<=30 & biweekly.period %in% c(3,4,5) & vaxstatus1=="Fully", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Age>=16 & Age<=30 & biweekly.period %in% c(3,4,5) & vaxstatus1=="Fully" & labresult=="POSITIVE", n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Age>=16 & Age<=30 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Age>=16 & Age<=30 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE", n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Age>=16 & Age<=30 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Age>=16 & Age<=30 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially" & labresult=="POSITIVE", n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Age>=16 & Age<=30 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & Age>=16 & Age<=30 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully" & labresult=="POSITIVE", n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & Age>=31 & Age<=50 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=31 & Age<=50 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=31 & Age<=50 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=31 & Age<=50 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=31 & Age<=50 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=31 & Age<=50 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=31 & Age<=50 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=31 & Age<=50 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=31 & Age<=50 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=31 & Age<=50 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=31 & Age<=50 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=31 & Age<=50 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=51 & Age<=64 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=51 & Age<=64 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=51 & Age<=64 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=51 & Age<=64 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=51 & Age<=64 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=51 & Age<=64 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=51 & Age<=64 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=51 & Age<=64 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=51 & Age<=64 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=51 & Age<=64 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=51 & Age<=64 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=51 & Age<=64 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=65 & Age<=80 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=65 & Age<=80 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=65 & Age<=80 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=65 & Age<=80 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=65 & Age<=80 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=65 & Age<=80 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=65 & Age<=80 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=65 & Age<=80 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=65 & Age<=80 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=65 & Age<=80 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=65 & Age<=80 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=65 & Age<=80 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=81 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=81 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=81 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=81 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=81 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=81 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=81 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=81 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=81 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=81 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+vax.data[prev.inf=="No" & Age>=81 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully", n_distinct(PatientID)]         
+vax.data[prev.inf=="No" & Age>=81 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully" & labresult=="POSITIVE", n_distinct(PatientID)]         
+
+
+model.12to15 <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & Age>=12 & Age<=15 & Test_date>="2021-06-15",], family = binomial(link="logit"))
 summary(model.12to15)
 1-exp(coef(model.12to15))
 1-exp(confint(model.12to15))
+beep()
 
 model.12to15.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
-                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="NO" &  Age>=12 & Age<=15,], family = binomial(link="logit"))
+                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" &  Age>=12 & Age<=15 & Test_date>="2021-06-15",], family = binomial(link="logit"))
 summary(model.12to15.1)
 1-exp(coef(model.12to15.1))
-1-exp(confint(model.12to15.1))
+1-exp(confint.default(model.12to15.1))
+beep()
 
-model.16to30 <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & Age>=16 & Age<=30,], family = binomial(link="logit"))
+
+
+model.16to30 <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & Age>=16 & Age<=30 & biweekly.period %in% c(3,4,5),], family = binomial(link="logit"))
 summary(model.16to30)
 1-exp(coef(model.16to30))
 1-exp(confint(model.16to30))
+beep()
 
 model.16to30.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
-                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="NO" &  Age>=16 & Age<=30,], family = binomial(link="logit"))
+                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" &  Age>=16 & Age<=30 & biweekly.period %in% c(3,4,5) ,], family = binomial(link="logit"))
 summary(model.16to30.1)
 1-exp(coef(model.16to30.1))
-1-exp(confint(model.16to30.1))
+1-exp(confint.default(model.16to30.1))
+beep()
 
-model.31to65 <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & Age>=31 & Age<=65,], family = binomial(link="logit"))
-summary(model.31to65)
-1-exp(coef(model.31to65))
-1-exp(confint(model.31to65))
+model.16to30.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & Age>=16 & Age<=30 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.16to30.delta)
+1-exp(coef(model.16to30.delta))
+1-exp(confint.default(model.16to30.delta))
+beep()
 
-model.31to65.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
-                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="NO" &  Age>=31 & Age<=65,], family = binomial(link="logit"))
-summary(model.31to65.1)
-1-exp(coef(model.31to65.1))
-1-exp(confint(model.31to65.1))
+model.16to30.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" &  Age>=16 & Age<=30 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) ,], family = binomial(link="logit"))
+summary(model.16to30.1.delta)
+1-exp(coef(model.16to30.1.delta))
+1-exp(confint.default(model.16to30.1.delta))
+beep()
 
-model.65plus <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & Age>=65,], family = binomial(link="logit"))
-summary(model.65plus)
-1-exp(coef(model.65plus))
-1-exp(confint(model.65plus))
 
-model.65plus.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
-                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="NO" &  Age>=65,], family = binomial(link="logit"))
-summary(model.65plus.1)
-1-exp(coef(model.65plus.1))
-1-exp(confint(model.65plus.1))
+model.31to50 <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & Age>=31 & Age<=50 & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
+summary(model.31to50)
+1-exp(coef(model.31to50))
+1-exp(confint.default(model.31to50))
+beep()
+
+model.31to50.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period)+ factor(BMI_cat), data=vax.data[prev.inf=="No" & Age>=31 & Age<=50 & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
+summary(model.31to50.1)
+1-exp(coef(model.31to50.1))
+1-exp(confint.default(model.31to50.1))
+beep()
+
+
+model.31to50.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & Age>=31 & Age<=50 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.31to50.delta)
+1-exp(coef(model.31to50.delta))
+1-exp(confint.default(model.31to50.delta))
+beep()
+
+model.31to50.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & Age>=31 & Age<=50 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.31to50.1.delta)
+1-exp(coef(model.31to50.1.delta))
+1-exp(confint.default(model.31to50.1.delta))
+beep()
+
+
+model.51to64 <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & Age>=51 & Age<=64 & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
+summary(model.51to64)
+1-exp(coef(model.51to64))
+1-exp(confint.default(model.51to64))
+beep()
+
+model.51to64.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & Age>=51 & Age<=64 & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
+summary(model.51to64.1)
+1-exp(coef(model.51to64.1))
+1-exp(confint.default(model.51to64.1))
+beep()
+
+model.51to64.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & Age>=51 & Age<=64 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.51to64.delta)
+1-exp(coef(model.51to64.delta))
+1-exp(confint.default(model.51to64.delta))
+beep()
+
+model.51to64.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & Age>=51 & Age<=64 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.51to64.1.delta)
+1-exp(coef(model.51to64.1.delta))
+1-exp(confint.default(model.51to64.1.delta))
+beep()
+
+model.65to80 <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & Age>=65 & Age<=80 & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
+summary(model.65to80)
+1-exp(coef(model.65to80))
+1-exp(confint.default(model.65to80))
+beep()
+
+model.65to80.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & Age>=65 & Age<=80 & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
+summary(model.65to80.1)
+1-exp(coef(model.65to80.1))
+1-exp(confint.default(model.65to80.1))
+beep()
+
+
+model.65to80.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & Age>=65 & Age<=80 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.65to80.delta)
+1-exp(coef(model.65to80.delta))
+1-exp(confint.default(model.65to80.delta))
+beep()
+
+model.65to80.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & Age>=65 & Age<=80 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.65to80.1.delta)
+1-exp(coef(model.65to80.1.delta))
+1-exp(confint.default(model.65to80.1.delta))
+beep()
+
+
+model.over80 <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & Age>=81 & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
+summary(model.over80)
+1-exp(coef(model.over80))
+1-exp(confint.default(model.over80))
+
+model.over80.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & Age>=81 & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
+summary(model.over80.1)
+1-exp(coef(model.over80.1))
+1-exp(confint.default(model.over80.1))
+beep()
+
+
+model.over80.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & Age>=81 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.over80.delta)
+1-exp(coef(model.over80.delta))
+1-exp(confint.default(model.over80.delta))
+beep()
+
+model.over80.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & Age>=81 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.over80.1.delta)
+1-exp(coef(model.over80.1.delta))
+1-exp(confint.default(model.over80.1.delta))
+beep()
+
 
 
 #Comorbidities
-model.comorbid <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & comorbidity==1,], family = binomial(link="logit"))
+
+vax.data[prev.inf=="No" & comorbidity==1 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & comorbidity==1 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & comorbidity==1 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & comorbidity==1 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & comorbidity==1 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & comorbidity==1 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & comorbidity==1 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & comorbidity==1 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & comorbidity==1 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & comorbidity==1 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & comorbidity==1 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & comorbidity==1 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & comorbidity==0 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & comorbidity==0 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & comorbidity==0 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & comorbidity==0 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & comorbidity==0 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & comorbidity==0 & biweekly.period %in% c(1,2,3,4,5) & vaxstatus1=="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & comorbidity==0 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & comorbidity==0 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & comorbidity==0 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & comorbidity==0 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[prev.inf=="No" & comorbidity==0 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully", n_distinct(PatientID)]
+vax.data[prev.inf=="No" & comorbidity==0 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & vaxstatus1=="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+
+model.comorbid <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & comorbidity==1 & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
 summary(model.comorbid)
 1-exp(coef(model.comorbid))
-1-exp(confint(model.comorbid))
+1-exp(confint.default(model.comorbid))
+beep()
 
 model.comorbid.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
-                         + factor(racecat) + factor(agecat) + factor(biweekly.period), data=vax.data[prev.inf=="NO" & comorbidity==1,], family = binomial(link="logit"))
+                         + factor(racecat) + factor(agecat) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & comorbidity==1 & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
 summary(model.comorbid.1)
 1-exp(coef(model.comorbid.1))
-1-exp(confint(model.comorbid.1))
+1-exp(confint.default(model.comorbid.1))
+beep()
+
+model.comorbid.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & comorbidity==1 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.comorbid.delta)
+1-exp(coef(model.comorbid.delta))
+1-exp(confint.default(model.comorbid.delta))
+
+model.comorbid.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                         + factor(racecat) + factor(agecat) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & comorbidity==1 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.comorbid.1.delta)
+1-exp(coef(model.comorbid.1.delta))
+1-exp(confint.default(model.comorbid.1.delta))
+beep()
 
 
-model.nocomorbid <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="NO" & comorbidity==0,], family = binomial(link="logit"))
+model.nocomorbid <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & comorbidity==0 & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
 summary(model.nocomorbid)
 1-exp(coef(model.nocomorbid))
-1-exp(confint(model.nocomorbid))
+1-exp(confint.default(model.nocomorbid))
 
 model.nocomorbid.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
-                         + factor(racecat) + factor(agecat) + factor(biweekly.period), data=vax.data[prev.inf=="NO" & comorbidity==0,], family = binomial(link="logit"))
+                                 + factor(racecat) + factor(agecat) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & comorbidity==0 & biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
 summary(model.nocomorbid.1)
 1-exp(coef(model.nocomorbid.1))
-1-exp(confint(model.nocomorbid.1))
+1-exp(confint.default(model.nocomorbid.1))
+beep()
+
+model.nocomorbid.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[prev.inf=="No" & comorbidity==0 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.nocomorbid.delta)
+1-exp(coef(model.nocomorbid.delta))
+1-exp(confint.default(model.nocomorbid.delta))
+
+model.nocomorbid.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                         + factor(racecat) + factor(agecat) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[prev.inf=="No" & comorbidity==0 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.nocomorbid.1.delta)
+1-exp(coef(model.nocomorbid.1.delta))
+1-exp(confint.default(model.nocomorbid.1.delta))
+beep()
 
 
-
-
-
-
-
-
-#How many vaccinated between Jan and march: Some Ns
-str(vax.data$Vax_date)
-
+##Vaccine manufacturer
 vax.data <- as.data.table(vax.data)
-vax.data[Vax_date>="2020-12-01" & Vax_date<="2021-03-31", uniqueN(PatientID)] #79844
-vax.data[Vax_date>="2021-03-31", uniqueN(PatientID)] #392262
-vax.data[Test.date>="2021-03-31", uniqueN(PatientID)] #389044
-vax.data[Vax_date>="2020-12-01" & Vax_date<="2021-03-31" & Test.date>="2021-03-31", uniqueN(PatientID)] #30703
-vax.data[Vax_date>="2020-12-01" & Vax_date<="2021-03-31" & Test.date>="2021-03-31" & Lab.Result.Interpretation=="POSITIVE" & (Grouping == "COVID PCR (Active)
-" | Grouping == "POC Test"), uniqueN(PatientID)] #2264
-
-vax.data[Vax_date>="2020-12-01" & Vax_date<="2021-03-31" & Test.date>="2021-03-31" & Lab.Result.Interpretation=="POSITIVE" & (Grouping == "COVID PCR (Active)
-" | Grouping == "POC Test") & Vaccine=="Yes", uniqueN(PatientID)] #193
-vax.data[Vax_date>="2020-12-01" & Vax_date<="2021-03-31" & Test.date>="2021-03-31" & Lab.Result.Interpretation=="POSITIVE" & (Grouping == "COVID PCR (Active)
-" | Grouping == "POC Test") & Vaccine=="No", uniqueN(PatientID)] #2077
-vax.data[Vax_date>="2020-12-01" & Vax_date<="2021-03-31" & Test.date>="2021-03-31" & Lab.Result.Interpretation=="NEGATIVE" & (Grouping == "COVID PCR (Active)
-" | Grouping == "POC Test") & Vaccine=="Yes", uniqueN(PatientID)] #5137
-vax.data[Vax_date>="2020-12-01" & Vax_date<="2021-03-31" & Test.date>="2021-03-31" & Lab.Result.Interpretation=="NEGATIVE" & (Grouping == "COVID PCR (Active)
-" | Grouping == "POC Test") & Vaccine=="No", uniqueN(PatientID)] #22698
-
-#Remove "No Response" vaccination status
-vax.data %>%
-  filter(final_vaxstatus!="No response") -> vax.data
-
-#Restrict lab test dates to March
-vax.data[Vax_date<="2021-03-01", n_distinct(PatientID)] #only 3 ppl with vax before March 1st 
-
-vax.data %>%
-  filter(Test_date>="2021-03-01" & Vax_date>="2021-03-01")-> vax.data
-
-#Restrict data to those with PCR/POC tests
-vax.data %>%
-  filter(Grouping!="Antibody IgG")-> vax.data
-
-#Remove tests after first positive and create a separate dataset 
-vax.data %>%
-  group_by(PatientID)%>%
-  mutate(first.pos = min(Test_date[labresult=="POSITIVE"])) %>%
-  filter(Test_date<=first.pos)%>%
-  as.data.table()-> vax.data1
-
-vax.data1 %>%
-  group_by(PatientID)%>%
-  mutate(final_lab_status = ifelse(n_distinct(labresult) > 1, labresult[Test_date==max(Test_date)], labresult))%>%
-  as.data.table()-> vax.data1
-
-# No. of pts with vax data and tests
-vax.data <- as.data.table(vax.data)
-vax.data1[, n_distinct(PatientID)] #815,153
-
-vax.data[final_vaxstatus=="Yes", n_distinct(PatientID)]
-vax.data[vaxstatus=="Yes", n_distinct(PatientID)]
-vax.data[vaxstatus=="No", n_distinct(PatientID)]
-vax.data[final_vaxstatus=="No", n_distinct(PatientID)]
-vax.data[vaxstatus=="No response", n_distinct(PatientID)]
-vax.data[final_vaxstatus=="No response", n_distinct(PatientID)]
-vax.data[vaxstatus=="No" & vaxstatus=="Yes", n_distinct(PatientID)] 
-vax.data[final_fully_vax=="Yes", n_distinct(PatientID)]
-#final_vaxstatus give correct totals
 
+vax.data$vaxname[vax.data$Vax_rec=="Yes" & is.na(vax.data$vaxname)] <- "Unknown"
+table(vax.data$vaxname)
 
-
-
-#Crude OR comparing vax status to disease status 
-vax.data1 %>%
-  group_by(final_lab_status, final_vaxstatus) %>%
-  summarise(n_distinct(PatientID))
+Pfizer <- vax.data %>%
+  filter(vaxname=="Pfizer" | is.na(vaxname))
 
-#Crude OR by month 
-vax.data1 %>%
-  filter(Test_date>="2021-03-01" & Test_date<"2021-04-01")%>%
-  group_by(labresult, vaxstatus) %>%
-  summarise(n_distinct(PatientID))
-
-vax.data1 %>%
-  filter(Test_date>="2021-04-01" & Test_date<"2021-05-01")%>%
-  group_by(labresult, vaxstatus) %>%
-  summarise(n_distinct(PatientID))
+Moderna <- vax.data %>%
+  filter(vaxname=="Moderna" | is.na(vaxname))
 
 
-vax.data1 %>%
-  filter(Test_date>="2021-05-01" & Test_date<"2021-06-01")%>%
-  group_by(labresult, vaxstatus) %>%
-  summarise(n_distinct(PatientID))
+table(Pfizer$prev.inf, Pfizer$vaxstatus1, useNA = "ifany")
+table(Moderna$prev.inf, Moderna$vaxstatus1, useNA = "ifany")
+table(JandJ$prev.inf, JandJ$vaxstatus1, useNA = "ifany")
 
-vax.data1 %>%
-  filter(Test_date>="2021-06-01" & Test_date<"2021-07-01")%>%
-  group_by(labresult, vaxstatus) %>%
-  summarise(n_distinct(PatientID))
-
-vax.data1 %>%
-  filter(Test_date>="2021-07-01" & Test_date<"2021-08-01")%>%
-  group_by(labresult, vaxstatus) %>%
-  summarise(n_distinct(PatientID))
+Pfizer$exposure = NA
+Pfizer$exposure[Pfizer$vaxstatus1 %in% c("Fully") & Pfizer$prev.inf=="No"] <- "Fully only"
+Pfizer$exposure[Pfizer$vaxstatus1 %in% c("Fully") & Pfizer$prev.inf=="Yes"] <- "Fully + Natural"
+Pfizer$exposure[Pfizer$vaxstatus1 %in% c("Partially") & Pfizer$prev.inf=="Yes"] <- "Partial + Natural"
+Pfizer$exposure[Pfizer$vaxstatus1 %in% c("Partially") & Pfizer$prev.inf=="No"] <- "Partial only"
+Pfizer$exposure[Pfizer$vaxstatus1 %in% c("Unvaccinated") & Pfizer$prev.inf=="Yes"] <- "No Pfizer + Natural"
+Pfizer$exposure[Pfizer$vaxstatus1 %in% c("Unvaccinated") & Pfizer$prev.inf=="No"] <- "No Pfizer + No Natural"
 
-#Prevalence of partially/fully vaccinated over time
-vax.data1 %>%
-  filter(Test_date>="2021-03-01" & Test_date<"2021-04-01")%>%
-  summarise(n_distinct(PatientID))
+table(Pfizer$exposure, useNA="ifany")
 
-vax.data1 %>%
-  filter(Test_date>="2021-03-01" & Test_date<"2021-04-01")%>%
-  group_by(fully_vax) %>%
-  summarise(n_distinct(PatientID))
+Moderna$exposure = NA
+Moderna$exposure[Moderna$vaxstatus1 %in% c("Fully") & Moderna$prev.inf=="No"] <- "Fully only"
+Moderna$exposure[Moderna$vaxstatus1 %in% c("Fully") & Moderna$prev.inf=="Yes"] <- "Fully + Natural"
+Moderna$exposure[Moderna$vaxstatus1 %in% c("Partially") & Moderna$prev.inf=="Yes"] <- "Partial + Natural"
+Moderna$exposure[Moderna$vaxstatus1 %in% c("Partially") & Moderna$prev.inf=="No"] <- "Partial only"
+Moderna$exposure[Moderna$vaxstatus1 %in% c("Unvaccinated") & Moderna$prev.inf=="Yes"] <- "No Moderna + Natural"
+Moderna$exposure[Moderna$vaxstatus1 %in% c("Unvaccinated") & Moderna$prev.inf=="No"] <- "No Moderna + No Natural"
 
+table(Moderna$exposure, useNA="ifany")
 
-vax.data1 %>%
-  filter(Test_date>="2021-03-01" & Test_date<"2021-04-01")%>%
-  group_by(vaxstatus) %>%
-  summarise(n_distinct(PatientID))
 
 
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="No Pfizer + No Natural" & symptomatic.case==1, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="No Pfizer + No Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-vax.data1 %>%
-  filter(Test_date>="2021-04-01" & Test_date<"2021-05-01")%>%
-  summarise(n_distinct(PatientID))
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="Fully only" & symptomatic.case==1, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="Fully only"  & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="Fully + Natural" & symptomatic.case==1, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="Fully + Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-vax.data1 %>%
-  filter(Test_date>="2021-04-01" & Test_date<"2021-05-01")%>%
-  group_by(vaxstatus) %>%
-  summarise(n_distinct(PatientID))
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="Partial + Natural" & symptomatic.case==1, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="Partial + Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-vax.data1 %>%
-  filter(Test_date>="2021-04-01" & Test_date<"2021-05-01")%>%
-  group_by(fully_vax) %>%
-  summarise(n_distinct(PatientID))
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="Partial only" & symptomatic.case==1, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="Partial only" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-vax.data1 %>%
-  filter(Test_date>="2021-05-01" & Test_date<"2021-06-01")%>%
-  summarise(n_distinct(PatientID))
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="No Pfizer + Natural" & symptomatic.case==1, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="No Pfizer + Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="No Pfizer + No Natural" & symptomatic.case==1, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="No Pfizer + No Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-vax.data1 %>%
-  filter(Test_date>="2021-05-01" & Test_date<"2021-06-01")%>%
-  group_by(vaxstatus) %>%
-  summarise(n_distinct(PatientID))
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Fully only" & symptomatic.case==1, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Fully only" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-vax.data1 %>%
-  filter(Test_date>="2021-05-01" & Test_date<"2021-06-01")%>%
-  group_by(fully_vax) %>%
-  summarise(n_distinct(PatientID))
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Fully + Natural" & symptomatic.case==1, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Fully + Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Partial + Natural" & symptomatic.case==1, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Partial + Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-vax.data1 %>%
-  filter(Test_date>="2021-06-01" & Test_date<"2021-07-01")%>%
-  summarise(n_distinct(PatientID))
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Partial only" & symptomatic.case==1, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Partial only" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-vax.data1 %>%
-  filter(Test_date>="2021-06-01" & Test_date<"2021-07-01")%>%
-  group_by(vaxstatus) %>%
-  summarise(n_distinct(PatientID))
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="No Pfizer + Natural" & symptomatic.case==1, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="No Pfizer + Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-vax.data1 %>%
-  filter(Test_date>="2021-06-01" & Test_date<"2021-07-01")%>%
-  group_by(fully_vax) %>%
-  summarise(n_distinct(PatientID))
-
 
-vax.data1 %>%
-  filter(Test_date>="2021-07-01" & Test_date<"2021-08-01")%>%
-  summarise(n_distinct(PatientID))
 
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="No Pfizer + No Natural" & symptomatic.case==0, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="No Pfizer + No Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-vax.data1 %>%
-  filter(Test_date>="2021-07-01" & Test_date<"2021-08-01")%>%
-  group_by(vaxstatus) %>%
-  summarise(n_distinct(PatientID))
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="Fully only" & symptomatic.case==0, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="Fully only"  & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-vax.data1 %>%
-  filter(Test_date>="2021-07-01" & Test_date<"2021-08-01")%>%
-  group_by(fully_vax) %>%
-  summarise(n_distinct(PatientID))
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="Fully + Natural" & symptomatic.case==0, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="Fully + Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="Partial + Natural" & symptomatic.case==0, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="Partial + Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-####Weekly proportion vaccinated 
-vax.data1 %>%
-  group_by(Test_date) %>%
-  summarise(Tot=n_distinct(PatientID)) -> vaxdata.total
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="Partial only" & symptomatic.case==0, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="Partial only" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-vax.data1 %>%
-  filter(vaxstatus=="Yes")%>%
-  group_by(Vax_date) %>%
-  summarise(Vax=n_distinct(PatientID)) -> vaxdata.vax
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="No Pfizer + Natural" & symptomatic.case==0, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(1,2,3,4,5) & exposure=="No Pfizer + Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-vax.data1 %>%
-  filter(labresult=="POSITIVE")%>%
-  group_by(Test_date) %>%
-  summarise(Pos=n_distinct(PatientID)) -> vaxdata.pos
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="No Pfizer + No Natural" & symptomatic.case==0, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="No Pfizer + No Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Fully only" & symptomatic.case==0, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Fully only" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-daily.vax <- left_join(vaxdata.total, vaxdata.vax, by=c("Test_date"="Vax_date"))
-daily.vax <- left_join(daily.vax, vaxdata.pos, by="Test_date")
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Fully + Natural" & symptomatic.case==0, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Fully + Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-daily.vax$Pos[is.na(daily.vax$Pos)] <- 0
-daily.vax$Vax[is.na(daily.vax$Vax)] <- 0
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Partial + Natural" & symptomatic.case==0, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Partial + Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-##aggregate by week
-daily.vax %>% 
-  arrange(Test_date) -> daily.vax
-daily.vax <- daily.vax[-143,]
-#convert to time series object
-vax.trends <- as.xts(daily.vax[, c(2:4)], order.by = daily.vax$Test_date)
-#sum over 7 days for each column separately
-vax.trends.weekly <- apply.weekly(vax.trends, function(x) apply(x, 2, sum))
-#convert time series object to dataframe 
-vax.trends.weekly <- fortify(vax.trends.weekly)
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Partial only" & symptomatic.case==0, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Partial only" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-vax.trends.weekly %>%
-  mutate(prop.vax = Vax/Tot*100,
-         prop.pos = Pos/Tot*100) -> vax.trends.weekly
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="No Pfizer + Natural" & symptomatic.case==0, n_distinct(PatientID)]
+Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="No Pfizer + Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-ggplot(data=vax.trends.weekly, aes(x=Index, y=prop.vax)) + 
-  geom_line(aes(colour="Vaccinated")) +
-  geom_line(data=vax.trends.weekly, aes(x=Index, y=prop.pos, colour="Positive"))+
-  labs(colour="") +
-  ggtitle("Proportion positive and proportion vaccinated among CityMD patients")+
-  scale_color_manual(values=c(Vaccinated="Red", Positive="Turquoise"))+
-  ylab("%")+
-  #ylim(0,80)+
-  xlab("Week") 
-labs(colour="") 
 
-##Proportion vaccinated / unvaccinated among newly infected 
-vax.data1 %>%
-  filter(labresult=="POSITIVE") -> Pos.diag
 
-Pos.diag %>%
-  group_by(Vax_date) %>%
-  summarise(Tot=n_distinct(PatientID)) -> daily.pos
+Pfizer$exposure <- relevel(factor(Pfizer$exposure), ref="No Pfizer + No Natural")
 
-Pos.diag %>%
-  filter(vaxstatus=="Yes")%>%
-  group_by(Vax_date) %>%
-  summarise(Vax=n_distinct(PatientID)) -> daily.vax
+model.pfizer <-  glm(factor(labresult) ~ factor(exposure), data=Pfizer[biweekly.period %in% c(1,2,3,4,5) & symptomatic.case==0,], family = binomial(link="logit"))
+summary(model.pfizer)
+1-exp(coef(model.pfizer ))
+1-exp(confint.default(model.pfizer))
 
-Pos.diag %>%
-  filter(vaxstatus=="No")%>%
-  group_by(Vax_date) %>%
-  summarise(Unvax=n_distinct(PatientID)) -> daily.unvax
+model.pfizer.1 <-  glm(factor(labresult) ~ factor(exposure) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                                 + factor(racecat) + factor(agecat) + factor(biweekly.period) + factor(comorbidity) + factor(BMI_cat), data=Pfizer[biweekly.period %in% c(1,2,3,4,5) & symptomatic.case==0,], family = binomial(link="logit"))
+summary(model.pfizer.1)
+1-exp(coef(model.pfizer.1))
+1-exp(confint.default(model.pfizer.1))
+beep()
 
-daily.vax <- left_join(daily.pos, daily.vax, by=c("Vax_date"))
-daily.vax <- left_join(daily.vax, daily.unvax, by=c("Vax_date"))
+model.pfizer.delta <-  glm(factor(labresult) ~ factor(exposure), data=Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & symptomatic.case==0,], family = binomial(link="logit"))
+summary(model.pfizer.delta)
+1-exp(coef(model.pfizer.delta))
+1-exp(confint.default(model.pfizer.delta))
 
-daily.vax$Unvax[is.na(daily.vax$Unvax)] <- 0
-daily.vax$Vax[is.na(daily.vax$Vax)] <- 0
+model.pfizer.1.delta <-  glm(factor(labresult) ~ factor(exposure) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                       + factor(racecat) + factor(agecat) + factor(biweekly.period) + factor(comorbidity) + factor(BMI_cat), data=Pfizer[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & symptomatic.case==0,], family = binomial(link="logit"))
+summary(model.pfizer.1.delta)
+1-exp(coef(model.pfizer.1.delta))
+1-exp(confint.default(model.pfizer.1.delta))
+beep()
 
-##aggregate by week
-daily.vax %>% 
-  arrange(Vax_date) -> daily.vax
-#daily.vax <- daily.vax[-143,]
-#convert to time series object
-vax.trends <- as.xts(daily.vax[, c(2:4)], order.by = daily.vax$Vax_date)
-#sum over 7 days for each column separately
-vax.trends.weekly <- apply.weekly(vax.trends, function(x) apply(x, 2, sum))
-#convert time series object to dataframe 
-vax.trends.weekly <- fortify(vax.trends.weekly)
 
-vax.trends.weekly %>%
-  mutate(prop.vax = Vax/Tot*100,
-         prop.unvax = Unvax/Tot*100) -> vax.trends.weekly
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="No Moderna + No Natural" & symptomatic.case==1, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="No Moderna + No Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="Fully only" & symptomatic.case==1, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="Fully only" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-ggplot(data=vax.trends.weekly[-19,], aes(x=Index, y=prop.vax)) +
-  geom_bar(stat="identity", fill="steelblue")+
-  theme_minimal()+
-  xlab("Month")+
-  ylim(0,100)
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="Fully + Natural" & symptomatic.case==1, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="Fully + Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="Partial + Natural" & symptomatic.case==1, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="Partial + Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="Partial only" & symptomatic.case==1, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="Partial only" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="No Moderna + Natural" & symptomatic.case==1, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="No Moderna + Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="No Moderna + No Natural" & symptomatic.case==1, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="No Moderna + No Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Fully only" & symptomatic.case==1, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Fully only" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Fully + Natural" & symptomatic.case==1, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Fully + Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Partial + Natural" & symptomatic.case==1, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Partial + Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Partial only" & symptomatic.case==1, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Partial only" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-#Pick last row per patient 
-vax.data %>%
-  group_by(PatientID) %>%
-  slice_tail() -> vax.data
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="No Moderna + Natural" & symptomatic.case==1, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="No Moderna + Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-#restrict to those who had a test between April and May
-vax.data %>%
-  filter(Test.date>"2021-04-01")-> vax.data
 
-#breakthrough infections
-vax.data <- as.data.table(vax.data)
-#Group 1: Vaccinated with previous infection: 7.52%
-vax.data[vaxstatus=="Yes" & prev.inf2== "Yes" & fut.inf.2=="Yes", .N] #42
-vax.data[vaxstatus=="Yes" & prev.inf2== "Yes", .N] #558
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="No Moderna + No Natural" & symptomatic.case==0, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="No Moderna + No Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-#Group 2: Vaccinated without previous infection: 3.1%
-vax.data[vaxstatus=="Yes"& prev.inf2== "No" & fut.inf.2=="Yes", .N] #149
-vax.data[vaxstatus=="Yes"& prev.inf2== "No", .N] #4810
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="Fully only" & symptomatic.case==0, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="Fully only" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-#Group 3: Unvaccinated with previous infection 13.7%
-vax.data[vaxstatus=="No"& prev.inf2== "Yes" & fut.inf.2=="Yes", .N] #417
-vax.data[vaxstatus=="No"& prev.inf2== "Yes", .N] #3023
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="Fully + Natural" & symptomatic.case==0, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="Fully + Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="Partial + Natural" & symptomatic.case==0, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="Partial + Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="Partial only" & symptomatic.case==0, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="Partial only" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-table(vaccine.dat$Fully_vax, useNA = "ifany")
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="No Moderna + Natural" & symptomatic.case==0, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(1,2,3,4,5) & exposure=="No Moderna + Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-length(unique(COVIDResults.short$VisitID))
-length(unique(vaccine.dat$VisitID))
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="No Moderna + No Natural" & symptomatic.case==0, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="No Moderna + No Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-#merge the vax with results 
-vax.merged <- left_join(COVIDResults.short, vaccine.dat, by="VisitID")
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Fully only" & symptomatic.case==0, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Fully only" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
 
-#No. with at least one dose of vaccine 
-vax.merged %>%
-  group_by(Vaccine) %>%
-  summarise(ndist= n_distinct(PatientID))
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Fully + Natural" & symptomatic.case==0, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Fully + Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Partial + Natural" & symptomatic.case==0, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Partial + Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Partial only" & symptomatic.case==0, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="Partial only" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="No Moderna + Natural" & symptomatic.case==0, n_distinct(PatientID)]
+Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure=="No Moderna + Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+
+
+
+Moderna$exposure <- relevel(factor(Moderna$exposure), ref="No Moderna + No Natural")
+
+model.moderna <-  glm(factor(labresult) ~ factor(exposure), data=Moderna[biweekly.period %in% c(1,2,3,4,5) & symptomatic.case==0,], family = binomial(link="logit"))
+summary(model.moderna)
+1-exp(coef(model.moderna ))
+1-exp(confint.default(model.moderna))
+
+model.moderna.1 <-  glm(factor(labresult) ~ factor(exposure) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                       + factor(racecat) + factor(agecat) + factor(biweekly.period) + factor(comorbidity) + factor(BMI_cat), data=Moderna[biweekly.period %in% c(1,2,3,4,5) & symptomatic.case==0,], family = binomial(link="logit"))
+summary(model.moderna.1)
+1-exp(coef(model.moderna.1))
+1-exp(confint.default(model.moderna.1))
+beep()
+
+
+model.moderna.delta <-  glm(factor(labresult) ~ factor(exposure), data=Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & symptomatic.case==0,], family = binomial(link="logit"))
+summary(model.moderna.delta)
+1-exp(coef(model.moderna.delta))
+1-exp(confint.default(model.moderna.delta))
+
+
+model.moderna.1.delta <-  glm(factor(labresult) ~ factor(exposure) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                        + factor(racecat) + factor(agecat) + factor(biweekly.period) + factor(comorbidity) + factor(BMI_cat), data=Moderna[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & symptomatic.case==0,], family = binomial(link="logit"))
+summary(model.moderna.1.delta)
+1-exp(coef(model.moderna.1.delta))
+1-exp(confint.default(model.moderna.1.delta))
+beep()
+
+
+JandJ$vaxname[JandJ$Vax_rec=="Yes" & is.na(JandJ$vaxname)] <- "Unknown"
+
+
+JandJ %>%
+  filter(vaxname=="Johnson & Johnson" | is.na(vaxname))-> JandJ
+
+
+JandJ$vaxstatus1 = NA
+JandJ$vaxstatus1[JandJ$vaxstatus=="Yes"] <- "Fully"
+JandJ$vaxstatus1[JandJ$vaxstatus== "No"] <- "Unvaccinated"
+
+
+JandJ$exposure = NA
+JandJ$exposure[JandJ$vaxstatus1 %in% c("Fully") & JandJ$prev.inf=="No"] <- "JandJ only"
+JandJ$exposure[JandJ$vaxstatus1 %in% c("Fully") & JandJ$prev.inf=="Yes"] <- "JandJ + Natural"
+JandJ$exposure[JandJ$vaxstatus1 %in% c("Unvaccinated") & JandJ$prev.inf=="Yes"] <- "No JandJ + Natural"
+JandJ$exposure[JandJ$vaxstatus1 %in% c("Unvaccinated") & JandJ$prev.inf=="No"] <- "No JandJ + No Natural"
+
+table(JandJ$exposure, useNA="ifany")
+
+JandJ %>%
+  mutate(fever.final = ifelse(fever=="Yes" | Fever.vitalsigns==1, "Yes", "No"),
+         symptomatic.case = ifelse((fever.final=="Yes" | chills=="Yes" | cough =="Yes" | sore.throat=="Yes" | fatigue=="Yes" | headache=="Yes"|
+                                      confusion=="Yes" | taste.smell=="Yes" | sob=="Yes" | diarrhea=="Yes" | chest.pain=="Yes" | nausea.vomit=="Yes" |
+                                      congestion.nose=="Yes" | body.ache=="Yes" | O2.vitalsigns==1), 1,0)) -> JandJ
+
+Pfizer %>%
+  mutate(fever.final = ifelse(fever=="Yes" | Fever.vitalsigns==1, "Yes", "No"),
+         symptomatic.case = ifelse((fever.final=="Yes" | chills=="Yes" | cough =="Yes" | sore.throat=="Yes" | fatigue=="Yes" | headache=="Yes"|
+                                      confusion=="Yes" | taste.smell=="Yes" | sob=="Yes" | diarrhea=="Yes" | chest.pain=="Yes" | nausea.vomit=="Yes" |
+                                      congestion.nose=="Yes" | body.ache=="Yes" | O2.vitalsigns==1), 1,0)) -> Pfizer
+
+
+JandJ[biweekly.period %in% c(1,2,3,4,5) & exposure == "JandJ only" & symptomatic.case==1, n_distinct(PatientID)]
+JandJ[biweekly.period %in% c(1,2,3,4,5) & exposure == "JandJ only" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+JandJ[biweekly.period %in% c(1,2,3,4,5) & exposure == "JandJ + Natural" & symptomatic.case==1, n_distinct(PatientID)]
+JandJ[biweekly.period %in% c(1,2,3,4,5) & exposure == "JandJ + Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+JandJ[biweekly.period %in% c(1,2,3,4,5) & exposure == "No JandJ + Natural" & symptomatic.case==1, n_distinct(PatientID)]
+JandJ[biweekly.period %in% c(1,2,3,4,5) & exposure == "No JandJ + Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+JandJ[biweekly.period %in% c(1,2,3,4,5) & exposure == "No JandJ + No Natural" & symptomatic.case==1, n_distinct(PatientID)]
+JandJ[biweekly.period %in% c(1,2,3,4,5) & exposure == "No JandJ + No Natural" & symptomatic.case==1  & labresult=="POSITIVE", n_distinct(PatientID)]
+
+JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure == "JandJ only" & symptomatic.case==1, n_distinct(PatientID)]
+JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure == "JandJ only" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure == "JandJ + Natural" & symptomatic.case==1, n_distinct(PatientID)]
+JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure == "JandJ + Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure == "No JandJ + Natural" & symptomatic.case==1, n_distinct(PatientID)]
+JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure == "No JandJ + Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure == "No JandJ + No Natural" & symptomatic.case==1, n_distinct(PatientID)]
+JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure == "No JandJ + No Natural" & symptomatic.case==1 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+JandJ[biweekly.period %in% c(1,2,3,4,5) & exposure == "JandJ only" & symptomatic.case==0, n_distinct(PatientID)]
+JandJ[biweekly.period %in% c(1,2,3,4,5) & exposure == "JandJ only" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+JandJ[biweekly.period %in% c(1,2,3,4,5) & exposure == "JandJ + Natural" & symptomatic.case==0, n_distinct(PatientID)]
+JandJ[biweekly.period %in% c(1,2,3,4,5) & exposure == "JandJ + Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+JandJ[biweekly.period %in% c(1,2,3,4,5) & exposure == "No JandJ + Natural" & symptomatic.case==0, n_distinct(PatientID)]
+JandJ[biweekly.period %in% c(1,2,3,4,5) & exposure == "No JandJ + Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+JandJ[biweekly.period %in% c(1,2,3,4,5) & exposure == "No JandJ + No Natural" & symptomatic.case==0, n_distinct(PatientID)]
+JandJ[biweekly.period %in% c(1,2,3,4,5) & exposure == "No JandJ + No Natural" & symptomatic.case==0  & labresult=="POSITIVE", n_distinct(PatientID)]
+
+JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure == "JandJ only" & symptomatic.case==0, n_distinct(PatientID)]
+JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure == "JandJ only" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure == "JandJ + Natural" & symptomatic.case==0, n_distinct(PatientID)]
+JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure == "JandJ + Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure == "No JandJ + Natural" & symptomatic.case==0, n_distinct(PatientID)]
+JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure == "No JandJ + Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure == "No JandJ + No Natural" & symptomatic.case==0, n_distinct(PatientID)]
+JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & exposure == "No JandJ + No Natural" & symptomatic.case==0 & labresult=="POSITIVE", n_distinct(PatientID)]
+
+
+
+JandJ$exposure <- relevel(factor(JandJ$exposure), ref="No JandJ + No Natural")
+
+model.JandJ <-  glm(factor(labresult) ~ factor(exposure), data=JandJ[biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
+summary(model.JandJ)
+1-exp(coef(model.JandJ ))
+1-exp(confint.default(model.JandJ))
+
+
+model.JandJ.1 <-  glm(factor(labresult) ~ factor(exposure) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                        + factor(racecat) + factor(agecat) + factor(biweekly.period) +factor(BMI_cat) + factor(comorbidity), data=JandJ[biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
+summary(model.JandJ.1)
+1-exp(coef(model.JandJ.1))
+1-exp(confint.default(model.JandJ.1))
+beep()
+
+
+model.JandJ.delta <-  glm(factor(labresult) ~ factor(exposure), data=JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.JandJ.delta)
+1-exp(coef(model.JandJ.delta))
+1-exp(confint.default(model.JandJ.delta))
+
+
+model.JandJ.1.delta <-  glm(factor(labresult) ~ factor(exposure) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                      + factor(racecat) + factor(agecat) + factor(biweekly.period) +factor(BMI_cat), data=JandJ[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.JandJ.1.delta)
+1-exp(coef(model.JandJ.1.delta))
+1-exp(confint.default(model.JandJ.1.delta))
+beep()
+
+
+##By race/ethnicity
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="White" & vaxstatus1=="Unvaccinated",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="White" & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="White" & vaxstatus1=="Partially",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="White" & vaxstatus1=="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="White" & vaxstatus1=="Fully",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="White" & vaxstatus1=="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="White" & vaxstatus1=="Unvaccinated",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="White" & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="White" & vaxstatus1=="Partially",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="White" & vaxstatus1=="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="White" & vaxstatus1=="Fully",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="White" & vaxstatus1=="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+
+#White
+model.White <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="White",], family = binomial(link="logit"))
+summary(model.White)
+1-exp(coef(model.White))
+1-exp(confint.default(model.White))
+
+model.White.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                      + factor(agecat) + factor(comorbidity) + factor(biweekly.period) + factor(BMI_cat), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="White",], family = binomial(link="logit"))
+summary(model.White.1)
+1-exp(coef(model.White.1))
+1-exp(confint.default(model.White.1))
+
+model.White.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="White",], family = binomial(link="logit"))
+summary(model.White.delta)
+1-exp(coef(model.White.delta))
+1-exp(confint.default(model.White.delta))
+
+model.White.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                             + factor(agecat) +  factor(comorbidity)+ factor(biweekly.period) + factor(BMI_cat), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="White",], family = binomial(link="logit"))
+summary(model.White.1.delta)
+1-exp(coef(model.White.1.delta))
+1-exp(confint.default(model.White.1.delta))
+beep()
+
+
+#Black
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Black/AfrAm" & vaxstatus1=="Unvaccinated",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Black/AfrAm" & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Black/AfrAm" & vaxstatus1=="Partially",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Black/AfrAm" & vaxstatus1=="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Black/AfrAm" & vaxstatus1=="Fully",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Black/AfrAm" & vaxstatus1=="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Black/AfrAm" & vaxstatus1=="Unvaccinated",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Black/AfrAm" & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Black/AfrAm" & vaxstatus1=="Partially",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Black/AfrAm" & vaxstatus1=="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Black/AfrAm" & vaxstatus1=="Fully",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Black/AfrAm" & vaxstatus1=="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+model.Black <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Black/AfrAm",], family = binomial(link="logit"))
+summary(model.Black)
+1-exp(coef(model.Black))
+1-exp(confint.default(model.Black))
+
+model.Black.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                      + factor(agecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Black/AfrAm",], family = binomial(link="logit"))
+summary(model.Black.1)
+1-exp(coef(model.Black.1))
+1-exp(confint.default(model.Black.1))
+
+model.Black.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Black/AfrAm",], family = binomial(link="logit"))
+summary(model.Black.delta)
+1-exp(coef(model.Black.delta))
+1-exp(confint.default(model.Black.delta))
+
+model.Black.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                            + factor(agecat) +  factor(comorbidity)+ factor(biweekly.period), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Black/AfrAm",], family = binomial(link="logit"))
+summary(model.Black.1.delta)
+1-exp(coef(model.Black.1.delta))
+1-exp(confint.default(model.Black.1.delta))
+beep()
+
+#Hispanic
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Hispanic" & vaxstatus1=="Unvaccinated",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Hispanic" & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Hispanic" & vaxstatus1=="Partially",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Hispanic" & vaxstatus1=="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Hispanic" & vaxstatus1=="Fully",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Hispanic" & vaxstatus1=="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Hispanic" & vaxstatus1=="Unvaccinated",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Hispanic" & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Hispanic" & vaxstatus1=="Partially",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Hispanic" & vaxstatus1=="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Hispanic" & vaxstatus1=="Fully",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Hispanic" & vaxstatus1=="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+model.Hispanic <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Hispanic",], family = binomial(link="logit"))
+summary(model.Hispanic)
+1-exp(coef(model.Hispanic))
+1-exp(confint.default(model.Hispanic))
+
+model.Hispanic.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                      + factor(agecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Hispanic",], family = binomial(link="logit"))
+summary(model.Hispanic.1)
+1-exp(coef(model.Hispanic.1))
+1-exp(confint.default(model.Hispanic.1))
+
+model.Hispanic.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Hispanic",], family = binomial(link="logit"))
+summary(model.Hispanic.delta)
+1-exp(coef(model.Hispanic.delta))
+1-exp(confint.default(model.Hispanic.delta))
+
+model.Hispanic.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                            + factor(agecat) +  factor(comorbidity)+ factor(biweekly.period), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Hispanic",], family = binomial(link="logit"))
+summary(model.Hispanic.1.delta)
+1-exp(coef(model.Hispanic.1.delta))
+1-exp(confint.default(model.Hispanic.1.delta))
+beep()
+
+
+#Asian
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Asian" & vaxstatus1=="Unvaccinated",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Asian" & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Asian" & vaxstatus1=="Partially",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Asian" & vaxstatus1=="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Asian" & vaxstatus1=="Fully",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Asian" & vaxstatus1=="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Asian" & vaxstatus1=="Unvaccinated",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Asian" & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Asian" & vaxstatus1=="Partially",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Asian" & vaxstatus1=="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Asian" & vaxstatus1=="Fully",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Asian" & vaxstatus1=="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+
+model.Asian <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Asian",], family = binomial(link="logit"))
+summary(model.Asian)
+1-exp(coef(model.Asian))
+1-exp(confint.default(model.Asian))
+
+model.Asian.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                         + factor(agecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Asian",], family = binomial(link="logit"))
+summary(model.Asian.1)
+1-exp(coef(model.Asian.1))
+1-exp(confint.default(model.Asian.1))
+
+model.Asian.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Asian",], family = binomial(link="logit"))
+summary(model.Asian.delta)
+1-exp(coef(model.Asian.delta))
+1-exp(confint.default(model.Asian.delta))
+
+model.Asian.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                               + factor(agecat) +  factor(comorbidity)+ factor(biweekly.period), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Asian",], family = binomial(link="logit"))
+summary(model.Asian.1.delta)
+1-exp(coef(model.Asian.1.delta))
+1-exp(confint.default(model.Asian.1.delta))
+beep()
+
+#Native American
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Native American/Alaskan Native/Pacific Islander" & vaxstatus1=="Unvaccinated",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Native American/Alaskan Native/Pacific Islander" & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Native American/Alaskan Native/Pacific Islander" & vaxstatus1=="Partially",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Native American/Alaskan Native/Pacific Islander" & vaxstatus1=="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Native American/Alaskan Native/Pacific Islander" & vaxstatus1=="Fully",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Native American/Alaskan Native/Pacific Islander" & vaxstatus1=="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Native American/Alaskan Native/Pacific Islander" & vaxstatus1=="Unvaccinated",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Native American/Alaskan Native/Pacific Islander" & vaxstatus1=="Unvaccinated" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Native American/Alaskan Native/Pacific Islander" & vaxstatus1=="Partially",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Native American/Alaskan Native/Pacific Islander" & vaxstatus1=="Partially" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Native American/Alaskan Native/Pacific Islander" & vaxstatus1=="Fully",n_distinct(PatientID)]
+vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Native American/Alaskan Native/Pacific Islander" & vaxstatus1=="Fully" & labresult=="POSITIVE",n_distinct(PatientID)]
+
+
+model.NatAm <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Native American/Alaskan Native/Pacific Islander",], family = binomial(link="logit"))
+summary(model.NatAm)
+1-exp(coef(model.NatAm))
+1-exp(confint.default(model.NatAm))
+
+model.NatAm.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                      + factor(agecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & racecat=="Native American/Alaskan Native/Pacific Islander",], family = binomial(link="logit"))
+summary(model.NatAm.1)
+1-exp(coef(model.NatAm.1))
+1-exp(confint.default(model.NatAm.1))
+
+model.NatAm.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Native American/Alaskan Native/Pacific Islander",], family = binomial(link="logit"))
+summary(model.NatAm.delta)
+1-exp(coef(model.NatAm.delta))
+1-exp(confint.default(model.NatAm.delta))
+
+model.NatAm.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(Region) + factor(Exp.risk)
+                            + factor(agecat) +  factor(comorbidity)+ factor(biweekly.period), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & racecat=="Native American/Alaskan Native/Pacific Islander",], family = binomial(link="logit"))
+summary(model.NatAm.1.delta)
+1-exp(coef(model.NatAm.1.delta))
+1-exp(confint.default(model.NatAm.1.delta))
+beep()
+
+##Borough
+#Manhattan
+model.Manhattan <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & Region=="Manhattan",], family = binomial(link="logit"))
+summary(model.Manhattan)
+1-exp(coef(model.Manhattan))
+1-exp(confint.default(model.Manhattan))
+
+model.Manhattan.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(racecat) + factor(Exp.risk)
+                      + factor(agecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & Region=="Manhattan",], family = binomial(link="logit"))
+summary(model.Manhattan.1)
+1-exp(coef(model.Manhattan.1))
+1-exp(confint.default(model.Manhattan.1))
+
+model.Manhattan.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Region=="Manhattan",], family = binomial(link="logit"))
+summary(model.Manhattan.delta)
+1-exp(coef(model.Manhattan.delta))
+1-exp(confint.default(model.Manhattan.delta))
+
+model.Manhattan.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(racecat) + factor(Exp.risk)
+                            + factor(agecat) +  factor(comorbidity)+ factor(biweekly.period), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Region=="Manhattan",], family = binomial(link="logit"))
+summary(model.Manhattan.1.delta)
+1-exp(coef(model.Manhattan.1.delta))
+1-exp(confint.default(model.Manhattan.1.delta))
+beep()
+
+
+#Brooklyn
+model.Brooklyn <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & Region=="Brooklyn",], family = binomial(link="logit"))
+summary(model.Brooklyn)
+1-exp(coef(model.Brooklyn))
+1-exp(confint.default(model.Brooklyn))
+
+model.Brooklyn.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(racecat) + factor(Exp.risk)
+                          + factor(agecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & Region=="Brooklyn",], family = binomial(link="logit"))
+summary(model.Brooklyn.1)
+1-exp(coef(model.Brooklyn.1))
+1-exp(confint.default(model.Brooklyn.1))
+
+model.Brooklyn.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Region=="Brooklyn",], family = binomial(link="logit"))
+summary(model.Brooklyn.delta)
+1-exp(coef(model.Brooklyn.delta))
+1-exp(confint.default(model.Brooklyn.delta))
+
+model.Brooklyn.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(racecat) + factor(Exp.risk)
+                                + factor(agecat) +  factor(comorbidity)+ factor(biweekly.period), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Region=="Brooklyn",], family = binomial(link="logit"))
+summary(model.Brooklyn.1.delta)
+1-exp(coef(model.Brooklyn.1.delta))
+1-exp(confint.default(model.Brooklyn.1.delta))
+beep()
+
+
+#Queens
+model.Queens <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & Region=="Queens",], family = binomial(link="logit"))
+summary(model.Queens)
+1-exp(coef(model.Queens))
+1-exp(confint.default(model.Queens))
+
+model.Queens.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(racecat) + factor(Exp.risk)
+                         + factor(agecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & Region=="Queens",], family = binomial(link="logit"))
+summary(model.Queens.1)
+1-exp(coef(model.Queens.1))
+1-exp(confint.default(model.Queens.1))
+
+model.Queens.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Region=="Queens",], family = binomial(link="logit"))
+summary(model.Queens.delta)
+1-exp(coef(model.Queens.delta))
+1-exp(confint.default(model.Queens.delta))
+
+model.Queens.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(racecat) + factor(Exp.risk)
+                               + factor(agecat) +  factor(comorbidity)+ factor(biweekly.period), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Region=="Queens",], family = binomial(link="logit"))
+summary(model.Queens.1.delta)
+1-exp(coef(model.Queens.1.delta))
+1-exp(confint.default(model.Queens.1.delta))
+beep()
+
+#Bronx
+model.Bronx <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & Region=="Bronx",], family = binomial(link="logit"))
+summary(model.Bronx)
+1-exp(coef(model.Bronx))
+1-exp(confint.default(model.Bronx))
+
+model.Bronx.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(racecat) + factor(Exp.risk)
+                       + factor(agecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & Region=="Bronx",], family = binomial(link="logit"))
+summary(model.Bronx.1)
+1-exp(coef(model.Bronx.1))
+1-exp(confint.default(model.Bronx.1))
+
+model.Bronx.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Region=="Bronx",], family = binomial(link="logit"))
+summary(model.Bronx.delta)
+1-exp(coef(model.Bronx.delta))
+1-exp(confint.default(model.Bronx.delta))
+
+model.Bronx.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(racecat) + factor(Exp.risk)
+                             + factor(agecat) +  factor(comorbidity)+ factor(biweekly.period), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Region=="Bronx",], family = binomial(link="logit"))
+summary(model.Bronx.1.delta)
+1-exp(coef(model.Bronx.1.delta))
+1-exp(confint.default(model.Bronx.1.delta))
+beep()
+
+#Staten Island
+model.Staten <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & Region=="Staten Island",], family = binomial(link="logit"))
+summary(model.Staten)
+1-exp(coef(model.Staten))
+1-exp(confint.default(model.Staten))
+
+model.Staten.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(racecat) + factor(Exp.risk)
+                      + factor(agecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & Region=="Staten Island",], family = binomial(link="logit"))
+summary(model.Staten.1)
+1-exp(coef(model.Staten.1))
+1-exp(confint.default(model.Staten.1))
+
+model.Staten.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Region=="Staten Island",], family = binomial(link="logit"))
+summary(model.Staten.delta)
+1-exp(coef(model.Staten.delta))
+1-exp(confint.default(model.Staten.delta))
+
+model.Staten.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(racecat) + factor(Exp.risk)
+                            + factor(agecat) +  factor(comorbidity)+ factor(biweekly.period), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Region=="Staten Island",], family = binomial(link="logit"))
+summary(model.Staten.1.delta)
+1-exp(coef(model.Staten.1.delta))
+1-exp(confint.default(model.Staten.1.delta))
+beep()
+
+#Long Island
+model.LI <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & Region=="Long Island",], family = binomial(link="logit"))
+summary(model.LI)
+1-exp(coef(model.LI))
+1-exp(confint.default(model.LI))
+
+model.LI.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(racecat) + factor(Exp.risk)
+                       + factor(agecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & Region=="Long Island",], family = binomial(link="logit"))
+summary(model.LI.1)
+1-exp(coef(model.LI.1))
+1-exp(confint.default(model.LI.1))
+
+model.LI.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Region=="Long Island",], family = binomial(link="logit"))
+summary(model.LI.delta)
+1-exp(coef(model.LI.delta))
+1-exp(confint.default(model.LI.delta))
+
+model.LI.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(racecat) + factor(Exp.risk)
+                             + factor(agecat) +  factor(comorbidity)+ factor(biweekly.period), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Region=="Long Island",], family = binomial(link="logit"))
+summary(model.LI.1.delta)
+1-exp(coef(model.LI.1.delta))
+1-exp(confint.default(model.LI.1.delta))
+beep()
+
+
+#Westchester
+model.MN <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & Region=="Metro North",], family = binomial(link="logit"))
+summary(model.MN)
+1-exp(coef(model.MN))
+1-exp(confint.default(model.MN))
+
+model.MN.1 <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(racecat) + factor(Exp.risk)
+                   + factor(agecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[biweekly.period %in% c(1,2,3,4,5) & Region=="Metro North",], family = binomial(link="logit"))
+summary(model.MN.1)
+1-exp(coef(model.MN.1))
+1-exp(confint.default(model.MN.1))
+
+model.MN.delta <-  glm(factor(labresult) ~ factor(vaxstatus1), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Region=="Metro North",], family = binomial(link="logit"))
+summary(model.MN.delta)
+1-exp(coef(model.MN.delta))
+1-exp(confint.default(model.MN.delta))
+
+model.MN.1.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Gender)  + factor(racecat) + factor(Exp.risk)
+                         + factor(agecat) +  factor(comorbidity)+ factor(biweekly.period), data=vax.data[biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Region=="Metro North",], family = binomial(link="logit"))
+summary(model.MN.1.delta)
+1-exp(coef(model.MN.1.delta))
+1-exp(confint.default(model.MN.1.delta))
+beep()
+
+##Sensitivity analysis
+##PCR tests only
+
+table(vax.data$Grouping)
+
+pcr <- vax.data %>%
+  filter(Grouping== "COVID PCR (Active)")
+
+pcr <- as.data.table(pcr)
+
+pcr[pcr$prev.inf=="No" & pcr$biweekly.period %in% c(1,2,3,4,5) & pcr$vaxstatus1=="Unvaccinated", n_distinct(PatientID)]
+pcr[pcr$prev.inf=="No" & pcr$biweekly.period %in% c(1,2,3,4,5) & pcr$vaxstatus1=="Unvaccinated" & pcr$labresult=="POSITIVE", n_distinct(PatientID)]
+
+pcr[pcr$prev.inf=="No" & pcr$biweekly.period %in% c(1,2,3,4,5) & pcr$vaxstatus1=="Partially", n_distinct(PatientID)]
+pcr[pcr$prev.inf=="No" & pcr$biweekly.period %in% c(1,2,3,4,5) & pcr$vaxstatus1=="Partially" & pcr$labresult=="POSITIVE", n_distinct(PatientID)]
+
+pcr[pcr$prev.inf=="No" & pcr$biweekly.period %in% c(1,2,3,4,5) & pcr$vaxstatus1=="Fully", n_distinct(PatientID)]
+pcr[pcr$prev.inf=="No" & pcr$biweekly.period %in% c(1,2,3,4,5) & pcr$vaxstatus1=="Fully" & pcr$labresult=="POSITIVE", n_distinct(PatientID)]
+
+pcr[pcr$prev.inf=="No" & pcr$biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & pcr$vaxstatus1=="Unvaccinated", n_distinct(PatientID)]
+pcr[pcr$prev.inf=="No" & pcr$biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & pcr$vaxstatus1=="Unvaccinated" & pcr$labresult=="POSITIVE", n_distinct(PatientID)]
+
+pcr[pcr$prev.inf=="No" & pcr$biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & pcr$vaxstatus1=="Partially", n_distinct(PatientID)]
+pcr[pcr$prev.inf=="No" & pcr$biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & pcr$vaxstatus1=="Partially" & pcr$labresult=="POSITIVE", n_distinct(PatientID)]
+
+pcr[pcr$prev.inf=="No" & pcr$biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & pcr$vaxstatus1=="Fully", n_distinct(PatientID)]
+pcr[pcr$prev.inf=="No" & pcr$biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & pcr$vaxstatus1=="Fully" & pcr$labresult=="POSITIVE", n_distinct(PatientID)]
+
+model.pcr.sens <- glm(factor(labresult) ~ factor(vaxstatus1), data=pcr[pcr$prev.inf=="No" & pcr$biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
+summary(model.pcr.sens)
+1-exp(coef(model.pcr.sens))
+1-exp(confint(model.pcr.sens))
+
+
+model.pcr.sens.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
+                + factor(comorbidity) + factor(racecat) + factor(biweekly.period) + factor(BMI_cat), data=pcr[pcr$prev.inf=="No" & pcr$biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
+summary(model.pcr.sens.1)
+1-exp(coef(model.pcr.sens.1))
+1-exp(confint.default(model.pcr.sens.1))
+
+
+model.pcr.sens.delta <- glm(factor(labresult) ~ factor(vaxstatus1), data=pcr[pcr$prev.inf=="No" & pcr$biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.pcr.sens.delta)
+1-exp(coef(model.pcr.sens.delta))
+1-exp(confint.default(model.pcr.sens.delta))
+beep()
+
+model.pcr.sens.delta.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
+                + factor(comorbidity) + factor(racecat) + factor(biweekly.period), data=pcr[pcr$prev.inf=="No" & pcr$biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.pcr.sens.delta.1)
+1-exp(coef(model.pcr.sens.delta.1))
+1-exp(confint.default(model.pcr.sens.delta.1))
+beep()
+
+
+pcr.JandJ <- JandJ %>%
+  filter(Grouping== "COVID PCR (Active)")
+
+pcr.JandJ$vaxstatus1 <- relevel(factor(pcr.JandJ$vaxstatus1), ref="Unvaccinated")
+
+model.JandJ.sens<- glm(factor(labresult) ~ factor(vaxstatus1), data=pcr.JandJ[pcr.JandJ$prev.inf=="No" & pcr.JandJ$biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
+summary(model.JandJ.sens)
+1-exp(coef(model.JandJ.sens))
+1-exp(confint(model.JandJ.sens))
+
+
+model.JandJ.sens.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
+                         + factor(racecat) + factor(biweekly.period) + factor(BMI_cat), data=pcr.JandJ[pcr.JandJ$prev.inf=="No" & pcr.JandJ$biweekly.period %in% c(1,2,3,4,5),], family = binomial(link="logit"))
+summary(model.JandJ.sens.1)
+1-exp(coef(model.JandJ.sens.1))
+1-exp(confint.default(model.JandJ.sens.1))
+
+
+model.JandJ.sens.delta <- glm(factor(labresult) ~ factor(vaxstatus1), data=pcr.JandJ[pcr.JandJ$prev.inf=="No" & pcr.JandJ$biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.JandJ.sens.delta)
+1-exp(coef(model.JandJ.sens.delta))
+1-exp(confint.default(model.JandJ.sens.delta))
+beep()
+
+model.JandJ.sens.delta.1 <- glm(factor(labresult) ~ factor(vaxstatus1) + factor(agecat) + factor(Gender) + factor(Region) + factor(Exp.risk)
+                              + factor(racecat) + factor(biweekly.period), data=pcr.JandJ[pcr.JandJ$prev.inf=="No" & pcr.JandJ$biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15),], family = binomial(link="logit"))
+summary(model.JandJ.sens.delta.1)
+1-exp(coef(model.JandJ.sens.delta.1))
+1-exp(confint.default(model.JandJ.sens.delta.1))
+beep()
+
+
+
+
+###Age-VE trend by gender
+age1.m <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                       + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=12 & Age<=15 & Gender=="M",] , family = binomial(link="logit"))
+summary(age1.m)
+1-exp(coef(age1.m))
+1-exp(confint.default(age1.m))
+beep()
+
+age1.f <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=12 & Age<=15 & Gender=="F",] , family = binomial(link="logit"))
+summary(age1.f)
+1-exp(coef(age1.f))
+1-exp(confint.default(age1.f))
+beep()
+
+age2.m <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+             + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=16 & Age<=20 & biweekly.period %in% c(3,4,5) & Gender=="M",], family = binomial(link="logit"))
+summary(age2.m)
+1-exp(coef(age2.m))
+1-exp(confint.default(age2.m))
+beep()
+
+age2.f <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+             + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=16 & Age<=20 & biweekly.period %in% c(3,4,5) & Gender=="F",], family = binomial(link="logit"))
+summary(age2.f)
+1-exp(coef(age2.f))
+1-exp(confint.default(age2.f))
+beep()
+
+
+age3.m <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=21 & Age<=25 & biweekly.period %in% c(3,4,5) & Gender=="M",], family = binomial(link="logit"))
+summary(age3.m)
+1-exp(coef(age3.m))
+1-exp(confint.default(age3.m))
+beep()
+
+age3.f <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=21 & Age<=25 & biweekly.period %in% c(3,4,5) & Gender=="F",], family = binomial(link="logit"))
+summary(age3.f)
+1-exp(coef(age3.f))
+1-exp(confint.default(age3.f))
+beep()
+
+
+age4.m <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=26 & Age<=30 & biweekly.period %in% c(3,4,5) & Gender=="M",], family = binomial(link="logit"))
+summary(age4.m)
+1-exp(coef(age4.m))
+1-exp(confint.default(age4.m))
+beep()
+
+age4.f <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=26 & Age<=30 & biweekly.period %in% c(3,4,5) & Gender=="F",], family = binomial(link="logit"))
+summary(age4.f)
+1-exp(coef(age4.f))
+1-exp(confint.default(age4.f))
+beep()
+
+age5.m <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=31 & Age<=35 & biweekly.period %in% c(1,2,3,4,5) & Gender=="M",], family = binomial(link="logit"))
+summary(age5.m)
+1-exp(coef(age5.m))
+1-exp(confint.default(age5.m))
+beep()
+
+age5.f <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=31 & Age<=35 & biweekly.period %in% c(1,2,3,4,5) & Gender=="F",], family = binomial(link="logit"))
+summary(age5.f)
+1-exp(coef(age5.f))
+1-exp(confint.default(age5.f))
+beep()
+
+
+age6.m <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=36 & Age<=40 & biweekly.period %in% c(1,2,3,4,5) & Gender=="M",], family = binomial(link="logit"))
+summary(age6.m)
+1-exp(coef(age6.m))
+1-exp(confint.default(age6.m))
+beep()
+
+age6.f <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=36 & Age<=40 & biweekly.period %in% c(1,2,3,4,5) & Gender=="F",], family = binomial(link="logit"))
+summary(age6.f)
+1-exp(coef(age6.f))
+1-exp(confint.default(age6.f))
+beep()
+
+age7.m <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=41 & Age<=45 & biweekly.period %in% c(1,2,3,4,5) & Gender=="M",], family = binomial(link="logit"))
+summary(age7.m)
+1-exp(coef(age7.m))
+1-exp(confint.default(age7.m))
+beep()
+
+age7.f <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=41 & Age<=45 & biweekly.period %in% c(1,2,3,4,5) & Gender=="F",], family = binomial(link="logit"))
+summary(age7.f)
+1-exp(coef(age7.f))
+1-exp(confint.default(age7.f))
+beep()
+
+
+age8.m <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=46 & Age<=50 & biweekly.period %in% c(1,2,3,4,5) & Gender=="M",], family = binomial(link="logit"))
+summary(age8.m)
+1-exp(coef(age8.m))
+1-exp(confint.default(age8.m))
+beep()
+
+age8.f <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=46 & Age<=50 & biweekly.period %in% c(1,2,3,4,5) & Gender=="F",], family = binomial(link="logit"))
+summary(age8.f)
+1-exp(coef(age8.f))
+1-exp(confint.default(age8.f))
+beep()
+
+
+age9.m <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=51 & Age<=55 & biweekly.period %in% c(1,2,3,4,5) & Gender=="M",], family = binomial(link="logit"))
+summary(age9.m)
+1-exp(coef(age9.m))
+1-exp(confint.default(age9.m))
+beep()
+
+age9.f <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=51 & Age<=55 & biweekly.period %in% c(1,2,3,4,5) & Gender=="F",], family = binomial(link="logit"))
+summary(age9.f)
+1-exp(coef(age9.f))
+1-exp(confint.default(age9.f))
+beep()
+
+age10.m <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=56 & Age<=60 & biweekly.period %in% c(1,2,3,4,5) & Gender=="M",], family = binomial(link="logit"))
+summary(age10.m)
+1-exp(coef(age10.m))
+1-exp(confint.default(age10.m))
+beep()
+
+age10.f <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=56 & Age<=60 & biweekly.period %in% c(1,2,3,4,5) & Gender=="F",], family = binomial(link="logit"))
+summary(age10.f)
+1-exp(coef(age10.f))
+1-exp(confint.default(age10.f))
+beep()
+
+age11.m <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=61 & Age<=65 & biweekly.period %in% c(1,2,3,4,5) & Gender=="M",], family = binomial(link="logit"))
+summary(age11.m)
+1-exp(coef(age11.m))
+1-exp(confint.default(age11.m))
+beep()
+
+age11.f <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=61 & Age<=65 & biweekly.period %in% c(1,2,3,4,5) & Gender=="F",], family = binomial(link="logit"))
+summary(age11.f)
+1-exp(coef(age11.f))
+1-exp(confint.default(age11.f))
+beep()
+
+age12.m <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=66 & Age<=70 & biweekly.period %in% c(1,2,3,4,5) & Gender=="M",], family = binomial(link="logit"))
+summary(age12.m)
+1-exp(coef(age12.m))
+1-exp(confint.default(age12.m))
+beep()
+
+age12.f <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=66 & Age<=70 & biweekly.period %in% c(1,2,3,4,5) & Gender=="F",], family = binomial(link="logit"))
+summary(age12.f)
+1-exp(coef(age12.f))
+1-exp(confint.default(age12.f))
+beep()
+
+age13.m <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=71 & Age<=75 & biweekly.period %in% c(1,2,3,4,5) & Gender=="M",], family = binomial(link="logit"))
+summary(age13.m)
+1-exp(coef(age13.m))
+1-exp(confint.default(age13.m))
+beep()
+
+age13.f <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=71 & Age<=75 & biweekly.period %in% c(1,2,3,4,5) & Gender=="F",], family = binomial(link="logit"))
+summary(age13.f)
+1-exp(coef(age13.f))
+1-exp(confint.default(age13.f))
+beep()
+
+
+age14.m <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=76 & Age<=80 & biweekly.period %in% c(1,2,3,4,5) & Gender=="M",], family = binomial(link="logit"))
+summary(age14.m)
+1-exp(coef(age14.m))
+1-exp(confint.default(age14.m))
+beep()
+
+age14.f <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=76 & Age<=80 & biweekly.period %in% c(1,2,3,4,5) & Gender=="F",], family = binomial(link="logit"))
+summary(age14.f)
+1-exp(coef(age14.f))
+1-exp(confint.default(age14.f))
+beep()
+
+
+age15.m <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=81 & Age<=85 & biweekly.period %in% c(1,2,3,4,5) & Gender=="M",], family = binomial(link="logit"))
+summary(age15.m)
+1-exp(coef(age15.m))
+1-exp(confint.default(age15.m))
+beep()
+
+age15.f <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=81 & Age<=85 & biweekly.period %in% c(1,2,3,4,5) & Gender=="F",], family = binomial(link="logit"))
+summary(age15.f)
+1-exp(coef(age15.f))
+1-exp(confint.default(age15.f))
+beep()
+
+age16.m <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=86 & biweekly.period %in% c(1,2,3,4,5) & Gender=="M",], family = binomial(link="logit"))
+summary(age16.m)
+1-exp(coef(age16.m))
+1-exp(confint.default(age16.m))
+beep()
+
+age16.f <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=86 & biweekly.period %in% c(1,2,3,4,5) & Gender=="F",], family = binomial(link="logit"))
+summary(age16.f)
+1-exp(coef(age16.f))
+1-exp(confint.default(age16.f))
+beep()
+
+
+age2.m.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=16 & Age<=20 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="M",], family = binomial(link="logit"))
+summary(age2.m.delta)
+1-exp(coef(age2.m.delta))
+1-exp(confint.default(age2.m.delta))
+beep()
+
+age2.f.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=16 & Age<=20 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="F",], family = binomial(link="logit"))
+summary(age2.f.delta)
+1-exp(coef(age2.f.delta))
+1-exp(confint.default(age2.f.delta))
+beep()
+
+
+age3.m.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=21 & Age<=25 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="M",], family = binomial(link="logit"))
+summary(age3.m.delta)
+1-exp(coef(age3.m.delta))
+1-exp(confint.default(age3.m.delta))
+beep()
+
+age3.f.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=21 & Age<=25 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="F",], family = binomial(link="logit"))
+summary(age3.f.delta)
+1-exp(coef(age3.f.delta))
+1-exp(confint.default(age3.f.delta))
+beep()
+
+
+age4.m.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=26 & Age<=30 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="M",], family = binomial(link="logit"))
+summary(age4.m.delta)
+1-exp(coef(age4.m.delta))
+1-exp(confint.default(age4.m.delta))
+beep()
+
+age4.f.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=26 & Age<=30 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="F",], family = binomial(link="logit"))
+summary(age4.f.delta)
+1-exp(coef(age4.f.delta))
+1-exp(confint.default(age4.f.delta))
+beep()
+
+age5.m.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=31 & Age<=35 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="M",], family = binomial(link="logit"))
+summary(age5.m.delta)
+1-exp(coef(age5.m.delta))
+1-exp(confint.default(age5.m.delta))
+beep()
+
+age5.f.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=31 & Age<=35 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="F",], family = binomial(link="logit"))
+summary(age5.f.delta)
+1-exp(coef(age5.f.delta))
+1-exp(confint.default(age5.f.delta))
+beep()
+
+
+age6.m.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=36 & Age<=40 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="M",], family = binomial(link="logit"))
+summary(age6.m.delta)
+1-exp(coef(age6.m.delta))
+1-exp(confint.default(age6.m.delta))
+beep()
+
+age6.f.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=36 & Age<=40 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="F",], family = binomial(link="logit"))
+summary(age6.f.delta)
+1-exp(coef(age6.f.delta))
+1-exp(confint.default(age6.f.delta))
+beep()
+
+age7.m.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=41 & Age<=45 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="M",], family = binomial(link="logit"))
+summary(age7.m.delta)
+1-exp(coef(age7.m.delta))
+1-exp(confint.default(age7.m.delta))
+beep()
+
+age7.f.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=41 & Age<=45 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="F",], family = binomial(link="logit"))
+summary(age7.f.delta)
+1-exp(coef(age7.f.delta))
+1-exp(confint.default(age7.f.delta))
+beep()
+
+
+age8.m.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=46 & Age<=50 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="M",], family = binomial(link="logit"))
+summary(age8.m.delta)
+1-exp(coef(age8.m.delta))
+1-exp(confint.default(age8.m.delta))
+beep()
+
+age8.f.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=46 & Age<=50 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="F",], family = binomial(link="logit"))
+summary(age8.f.delta)
+1-exp(coef(age8.f.delta))
+1-exp(confint.default(age8.f.delta))
+beep()
+
+
+age9.m.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=51 & Age<=55 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="M",], family = binomial(link="logit"))
+summary(age9.m.delta)
+1-exp(coef(age9.m.delta))
+1-exp(confint.default(age9.m.delta))
+beep()
+
+age9.f.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+               + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=51 & Age<=55 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="F",], family = binomial(link="logit"))
+summary(age9.f.delta)
+1-exp(coef(age9.f.delta))
+1-exp(confint.default(age9.f.delta))
+beep()
+
+age10.m.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=56 & Age<=60 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="M",], family = binomial(link="logit"))
+summary(age10.m.delta)
+1-exp(coef(age10.m.delta))
+1-exp(confint.default(age10.m.delta))
+beep()
+
+age10.f.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=56 & Age<=60 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="F",], family = binomial(link="logit"))
+summary(age10.f.delta)
+1-exp(coef(age10.f.delta))
+1-exp(confint.default(age10.f.delta))
+beep()
+
+age11.m.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=61 & Age<=65 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="M",], family = binomial(link="logit"))
+summary(age11.m.delta)
+1-exp(coef(age11.m.delta))
+1-exp(confint.default(age11.m.delta))
+beep()
+
+age11.f.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=61 & Age<=65 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="F",], family = binomial(link="logit"))
+summary(age11.f.delta)
+1-exp(coef(age11.f.delta))
+1-exp(confint.default(age11.f.delta))
+beep()
+
+age12.m.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=66 & Age<=70 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="M",], family = binomial(link="logit"))
+summary(age12.m.delta)
+1-exp(coef(age12.m.delta))
+1-exp(confint.default(age12.m.delta))
+beep()
+
+age12.f.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=66 & Age<=70 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="F",], family = binomial(link="logit"))
+summary(age12.f.delta)
+1-exp(coef(age12.f.delta))
+1-exp(confint.default(age12.f.delta))
+beep()
+
+age13.m.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=71 & Age<=75 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="M",], family = binomial(link="logit"))
+summary(age13.m.delta)
+1-exp(coef(age13.m.delta))
+1-exp(confint.default(age13.m.delta))
+beep()
+
+age13.f.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=71 & Age<=75 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="F",], family = binomial(link="logit"))
+summary(age13.f.delta)
+1-exp(coef(age13.f.delta))
+1-exp(confint.default(age13.f.delta))
+beep()
+
+
+age14.m.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=76 & Age<=80 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="M",], family = binomial(link="logit"))
+summary(age14.m.delta)
+1-exp(coef(age14.m.delta))
+1-exp(confint.default(age14.m.delta))
+beep()
+
+age14.f.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=76 & Age<=80 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="F",], family = binomial(link="logit"))
+summary(age14.f.delta)
+1-exp(coef(age14.f.delta))
+1-exp(confint.default(age14.f.delta))
+beep()
+
+
+age15.m.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=81 & Age<=85 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="M",], family = binomial(link="logit"))
+summary(age15.m.delta)
+1-exp(coef(age15.m.delta))
+1-exp(confint.default(age15.m.delta))
+beep()
+
+age15.f.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=81 & Age<=85 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="F",], family = binomial(link="logit"))
+summary(age15.f.delta)
+1-exp(coef(age15.f.delta))
+1-exp(confint.default(age15.f.delta))
+beep()
+
+age16.m.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=86 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="M",], family = binomial(link="logit"))
+summary(age16.m.delta)
+1-exp(coef(age16.m.delta))
+1-exp(confint.default(age16.m.delta))
+beep()
+
+age16.f.delta <-  glm(factor(labresult) ~ factor(vaxstatus1) + factor(Region) + factor(Exp.risk)
+                + factor(racecat) + factor(comorbidity) + factor(biweekly.period), data=vax.data[prev.inf=="No" &  Age>=86 & biweekly.period %in% c(6,7,8,9,10,11,12,13,14,15) & Gender=="F",], family = binomial(link="logit"))
+summary(age16.f.delta)
+1-exp(coef(age16.f.delta))
+1-exp(confint.default(age16.f.delta))
+beep()
+
+
+####Ct values
+#Violin plots
+
+library(vioplot)
+
+# Draw the plot
+ORF1 <- Ct_Values_Dataset[Ct_Values_Dataset$Test=="SARS CoV 2 ORF 1 Gene",]
+E <- Ct_Values_Dataset[Ct_Values_Dataset$Test=="SARS CoV 2 E Gene",]
+
+
+with(ORF1 , vioplot( 
+  Num.Res[Vaccinated=="Yes"] , Num.Res[Vaccinated=="No"],  
+  col=rgb(0.1,0.4,0.7,0.7) , names=c("Vaccinated", "Unvaccinated") 
+))
+
+with(E , vioplot( 
+  Num.Res[Vaccinated=="Yes"] , Num.Res[Vaccinated=="No"],  
+  col=rgb(0.1,0.4,0.7,0.7) , names=c("Vaccinated", "Unvaccinated") 
+))
+
+
+#VE over time 
+Time <- c("Apr 1- Apr 15",
+          "Apr 16- Apr 29",
+          "Apr 30 - May 13",
+          "May 14 - May 27",
+          "May 28 - 10 Jun",
+          "11 Jun - 24 Jun",
+          "25 Jun - 8 July",
+          "9 Jul -  22 Jul",
+          "23 Jul - 5 Aug",
+          "6 Aug - 19 Aug",
+          "20 Aug - 2 Sep",
+          "3 Sep - 16 Sep",
+          "17 Sep - 30 Sep",
+          "1 Oct - 14 Oct",
+          "15 Oct - 25th Oct")
+
+VE <- c(0.88,
+        0.87,
+        0.91,
+        0.88,
+        0.82,
+        0.69,
+        0.64,
+        0.61,
+        0.67,
+        0.68,
+        0.59,
+        0.47,
+        0.44,
+        0.54,
+        0.28)
+
+lb <- c(0.87,
+        0.85,
+        0.88,
+        0.85,
+        0.78,
+        0.62,
+        0.59,
+        0.59,
+        0.66,
+        0.66,
+        0.55,
+        0.42,
+        0.37,
+        0.44,
+        -0.07)
+
+ub <- c(0.9,
+        0.89,
+        0.92,
+        0.91,
+        0.86,
+        0.74,
+        0.68,
+        0.64,
+        0.69,
+        0.7,
+        0.62,
+        0.51,
+        0.51,
+        0.63,
+        0.52)
+
+VE.over.time <- as.data.frame(cbind(Time, VE, lb, ub))
+
+
+ggplot(VE.over.time, aes(x = Time, y = as.numeric(VE)*100, group = 1)) + 
+  geom_line(col='red') + 
+  geom_ribbon(aes(ymin = as.numeric(lb)*100, ymax = as.numeric(ub)*100), alpha = 0.1) +
+  scale_x_discrete(limits=c("Apr 1- Apr 15",
+                            "Apr 16- Apr 29",
+                            "Apr 30 - May 13",
+                            "May 14 - May 27",
+                            "May 28 - 10 Jun",
+                            "11 Jun - 24 Jun",
+                            "25 Jun - 8 July",
+                            "9 Jul -  22 Jul",
+                            "23 Jul - 5 Aug",
+                            "6 Aug - 19 Aug",
+                            "20 Aug - 2 Sep",
+                            "3 Sep - 16 Sep",
+                            "17 Sep - 30 Sep",
+                            "1 Oct - 14 Oct",
+                            "15 Oct - 25th Oct"))+
+  theme(axis.text.x = element_text(angle = 90)) +
+  ylab("Vaccine Effectiveness")
+
+
 
 
 
